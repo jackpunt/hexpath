@@ -17,10 +17,11 @@ export class StageComponent implements OnInit {
   getId(): string {
     return "T" + (StageComponent.idnum = StageComponent.idnum + 1);
   };
+  title: string = "HexPath";  // set development.port: 420x in angular.json AND vscode - run configuration (.vscode/launch.json)
 
   /** the query string: ?a=...&b=...&c=... =>{a: ..., b: ..., c:...} */
   @Input('params')
-  qParams: Params;
+  qParams: Params = {};
 
   @Input('width')
   width = 1600.0;   // [pixels] size of "Viewport" of the canvas / Stage
@@ -43,7 +44,7 @@ export class StageComponent implements OnInit {
   }
 
   ngAfterViewInit() {
-    setTimeout(()=>this.ngAfterViewInit2(), 250) //https://bugs.chromium.org/p/chromium/issues/detail?id=1229541
+    setTimeout(()=>this.ngAfterViewInit2(), 250) // https://bugs.chromium.org/p/chromium/issues/detail?id=1229541
   }
   ngAfterViewInit2() {
     let href: string = document.location.href;
@@ -56,7 +57,7 @@ export class StageComponent implements OnInit {
     TP.gport = Number.parseInt(urlParams.get('port') || TP.gport.toString(10), 10)
     TP.networkUrl = buildURL(undefined);
     const {n, file} = this.qParams;
-    this.titleService.setTitle(`Battleland ${n?` n=${n}`:''}${file?`file=${file}`:''}`);
+    this.titleService.setTitle(`${this.title} ${n?` n=${n}`:''}${file?`file=${file}`:''}`);
     ;(document.getElementById('readFileName') as HTMLInputElement).value = file ?? 'setup@0';
     const gs = new GameSetup(this.mapCanvasId, this.qParams);    // load images; new GamePlay(qParams);
     if (href.endsWith("startup") || false) {

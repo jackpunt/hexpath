@@ -63,6 +63,7 @@
               "browserTarget": "hexpath:build:production"
             },
             "development": {
+              "port": 4207,
               "browserTarget": "hexpath:build:development"
             }
           },
