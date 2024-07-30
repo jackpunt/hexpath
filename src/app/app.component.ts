@@ -8,9 +8,8 @@ import { KeyBinder } from '@thegraid/easeljs-lib';
   styleUrls: ['./app.component.css']
 })
 export class AppComponent {
-  // title = `HexPath`;
   get title() { return this.titleService.getTitle(); }
-  linkName = `HexPath - User Guide`;
+  linkName = `${this.title} - User Guide`;
   timestamp = `${new Date().toLocaleTimeString('en-US')}`;
 
   constructor(@Inject(KeyBinder) private keyBinder: KeyBinder, private titleService: Title) { }

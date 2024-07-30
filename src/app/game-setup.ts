@@ -1,6 +1,6 @@
 import { Params } from '@angular/router';
-import { C, Constructor } from '@thegraid/common-lib';
-import { AliasLoader, GamePlay, GameSetup as GameSetupLib, Hex, Hex2, HexMap, Meeple, Player, Scenario as Scenario0, TP, Table, Tile } from '@thegraid/hexlib';
+import { Constructor } from '@thegraid/common-lib';
+import { GamePlay, GameSetup as GameSetupLib, Hex, Hex2, HexMap, Meeple, Player, Scenario as Scenario0, TP, Tile, buildURL } from '@thegraid/hexlib';
 import { PathTable } from './path-table';
 
 // type Params = {[key: string]: any;}; // until hexlib supplies
@@ -11,13 +11,25 @@ export interface Scenario extends Scenario0 {
 /** initialize & reset & startup the application/game. */
 export class GameSetup extends GameSetupLib {
 
-  override initialize(canvasId: string, qParams = []): void {
+  override initialize(canvasId: string, qParams: Params = {}): void {
     // use NsTopo, size 7.
+    let { host, port, file, nH } = qParams;
     TP.useEwTopo = false;
-    TP.nHexes = 7;
+    TP.nHexes = nH || 7;
+    TP.ghost = host || TP.ghost
+    TP.gport = Number.parseInt(port || TP.gport.toString(10), 10)
+    TP.networkUrl = buildURL(undefined);
     super.initialize(canvasId);
+    let rfn = document.getElementById('readFileName') as HTMLInputElement;
+    rfn.value = file ?? 'setup@0';
     return;
   }
+
+  get pageLabel() {
+    const { n, file } = this.qParams;
+    const sep = (n !== undefined && file !== undefined) ? '&' : '';
+    return `${n ? ` n=${n}` : ''}${sep}${file ? `file=${file}` : ''}`;
+ }
 
   override loadImagesThenStartup(qParams: Params = []) {
     super.loadImagesThenStartup(qParams);    // loader.loadImages(() => this.startup(qParams));

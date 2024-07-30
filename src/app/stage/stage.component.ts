@@ -3,7 +3,7 @@ import { ActivatedRoute, Params } from '@angular/router';
 import { stime } from '@thegraid/easeljs-lib';
 //import { } from 'wicg-file-system-access';
 import { Title } from "@angular/platform-browser";
-import { buildURL, TP } from '@thegraid/hexlib';
+import { AppComponent } from '../app.component';
 import { GameSetup } from '../game-setup';
 
 @Component({
@@ -17,7 +17,6 @@ export class StageComponent implements OnInit {
   getId(): string {
     return "T" + (StageComponent.idnum = StageComponent.idnum + 1);
   };
-  title: string = "HexPath";  // set development.port: 420x in angular.json AND vscode - run configuration (.vscode/launch.json)
 
   /** the query string: ?a=...&b=...&c=... =>{a: ..., b: ..., c:...} */
   @Input('params')
@@ -31,7 +30,7 @@ export class StageComponent implements OnInit {
   /** HTML make a \<canvas/> with this ID: */
   mapCanvasId = "mapCanvas" + this.getId(); // argument to new Stage(this.canvasId)
 
-  constructor(private activatedRoute: ActivatedRoute, private titleService: Title) { }
+  constructor(private activatedRoute: ActivatedRoute, private titleService: Title, private app: AppComponent) { }
   ngOnInit() {
     console.log(stime(this, ".noOnInit---"))
     this.activatedRoute.params.subscribe(params => {
@@ -52,14 +51,8 @@ export class StageComponent implements OnInit {
     // disable browser contextmenu
     // console.log(stime(this, `.ngAfterViewInit--- preventDefault contextmenu`))
     window.addEventListener('contextmenu', (evt: MouseEvent) => evt.preventDefault())
-    const urlParams = new URLSearchParams(window.location.search);
-    TP.ghost = urlParams.get('host') || TP.ghost
-    TP.gport = Number.parseInt(urlParams.get('port') || TP.gport.toString(10), 10)
-    TP.networkUrl = buildURL(undefined);
-    const {n, file} = this.qParams;
-    this.titleService.setTitle(`${this.title} ${n?` n=${n}`:''}${file?`file=${file}`:''}`);
-    ;(document.getElementById('readFileName') as HTMLInputElement).value = file ?? 'setup@0';
     const gs = new GameSetup(this.mapCanvasId, this.qParams);    // load images; new GamePlay(qParams);
+    this.titleService.setTitle(`${this.app.title} ${gs.pageLabel}`)
     if (href.endsWith("startup") || false) {
       gs.startup(this.qParams);
     }
