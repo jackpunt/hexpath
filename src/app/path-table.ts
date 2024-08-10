@@ -1,5 +1,5 @@
 import { Stage } from "@thegraid/easeljs-module";
-import { Hex2, Table } from "@thegraid/hexlib";
+import { GamePlay, Hex2, Table } from "@thegraid/hexlib";
 
 export class PathTable extends Table {
   constructor(stage: Stage) {
@@ -11,4 +11,8 @@ export class PathTable extends Table {
     return undefined as any as Hex2;
   }
 
+  override layoutTable(gamePlay: GamePlay): void {
+    const { table, hexMap, gameSetup} = gamePlay;
+    super.layoutTable(gamePlay);
+  }
 }
