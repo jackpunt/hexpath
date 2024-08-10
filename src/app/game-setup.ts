@@ -2,6 +2,7 @@ import { Params } from '@angular/router';
 import { Constructor } from '@thegraid/common-lib';
 import { GamePlay, GameSetup as GameSetupLib, Hex, Hex2, HexMap, Meeple, Player, Scenario as Scenario0, TP, Tile, buildURL } from '@thegraid/hexlib';
 import { PathTable } from './path-table';
+import { AfHex } from './af-hex';
 
 // type Params = {[key: string]: any;}; // until hexlib supplies
 export interface Scenario extends Scenario0 {
@@ -14,14 +15,17 @@ export class GameSetup extends GameSetupLib {
   override initialize(canvasId: string, qParams: Params = {}): void {
     // use NsTopo, size 7.
     let { host, port, file, nH } = qParams;
-    TP.useEwTopo = false;
+    TP.useEwTopo = true;
     TP.nHexes = nH || 7;
     TP.ghost = host || TP.ghost
     TP.gport = Number.parseInt(port || TP.gport.toString(10), 10)
+    TP.networkGroup = 'hexpath:game1';
     TP.networkUrl = buildURL(undefined);
     super.initialize(canvasId);
     let rfn = document.getElementById('readFileName') as HTMLInputElement;
     rfn.value = file ?? 'setup@0';
+
+    AfHex.makeAllAfHex();  // make them all once... ?
     return;
   }
 
