@@ -2,8 +2,8 @@ import { Params } from '@angular/router';
 import { Constructor } from '@thegraid/common-lib';
 import { GameSetup as GameSetupLib, Hex, Hex2, HexMap, MapCont, Scenario as Scenario0, TP, Table } from '@thegraid/hexlib';
 import { AfHex } from './af-hex';
-import { PathTable } from './path-table';
 import { PathHex2 } from './path-hex';
+import { PathTable } from './path-table';
 
 // type Params = {[key: string]: any;}; // until hexlib supplies
 export interface Scenario extends Scenario0 {
