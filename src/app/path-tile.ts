@@ -1,4 +1,4 @@
-import { CGF, CircleShape, HexShape, MapTile, PaintableShape, Player, Tile } from "@thegraid/hexlib";
+import { CGF, CircleShape, HexShape, MapTile, Meeple, PaintableShape, Player, Tile } from "@thegraid/hexlib";
 import { AfHex } from "./af-hex";
 import { Graphics } from "@thegraid/easeljs-module";
 import { C } from "@thegraid/common-lib";
@@ -46,4 +46,7 @@ export class PathTile extends MapTile {
       }
     })
   }
+}
+export class PathMeep extends Meeple {
+  loc = [1,2];
 }
