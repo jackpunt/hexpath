@@ -12,7 +12,7 @@ export class PathTable extends Table {
   }
 
   override layoutTable(gamePlay: GamePlay): void {
-    const { table, hexMap, gameSetup} = gamePlay;
+    const { table, hexMap, gameSetup } = gamePlay;
     super.layoutTable(gamePlay);
   }
 }

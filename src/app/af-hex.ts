@@ -1,6 +1,7 @@
-import { C, S, stime } from "@thegraid/common-lib"
-import { Shape, Container } from "@thegraid/easeljs-module"
-import { TP, H, HexDir, NamedObject } from "@thegraid/hexlib"
+import { stime } from "@thegraid/common-lib"
+import type { NamedObject } from "@thegraid/easeljs-lib"
+import { Container, Shape } from "@thegraid/easeljs-module"
+import { H, HexDir, TP } from "@thegraid/hexlib"
 
 
 /** affinity in three dimensions: Shape(A,T,S), Color(R,G,B=orange), Fill(LINE, FILL) */

@@ -1,7 +1,8 @@
-import { CGF, CircleShape, HexShape, MapTile, Meeple, PaintableShape, Player, Tile } from "@thegraid/hexlib";
-import { AfHex } from "./af-hex";
-import { Graphics } from "@thegraid/easeljs-module";
 import { C } from "@thegraid/common-lib";
+import { CircleShape, type CGF, type PaintableShape } from "@thegraid/easeljs-lib";
+import { Graphics } from "@thegraid/easeljs-module";
+import { HexShape, MapTile, Meeple, Player, Tile } from "@thegraid/hexlib";
+import { AfHex } from "./af-hex";
 
 /** MapTile with AfHex & plyrDisk overlays.
  *
@@ -19,7 +20,7 @@ export class PathTile extends MapTile {
     this.afhex = AfHex.getAfHex(affn);
     this.addChild(this.afhex);
     this.addChild(this.plyrDisk);
-    this.plyrDisk.paint(player.colorn, true); // paint it once.
+    this.plyrDisk.paint(player.color, true); // paint it once.
     this.super_cgf = this.baseShape.cgf;
     this.setPlayerAndPaint(player);
   }
@@ -30,6 +31,7 @@ export class PathTile extends MapTile {
   }
 
   super_cgf: CGF;
+  override baseShape!: PaintableShape;  // set by constructor: baseShape = this.makeShape();
   override makeShape(): PaintableShape {
     const rv = new HexShape();
     rv.cgf = this.ptcgf;

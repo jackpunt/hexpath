@@ -1,5 +1,11 @@
 # Hexpath
 
+Uses Tiles with AfHex, intention is to match edges to build a path from corner in to center.
+
+with placements to block opponent.
+
+evolved towards hexrules: vanilla Tiles, but edit the placement rules.
+
 This project was generated with [Angular CLI](https://github.com/angular/angular-cli) version 15.2.10.
 
 ## Development server
