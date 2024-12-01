@@ -17,7 +17,7 @@ export class PathTile extends MapTile {
   readonly plyrDisk = new CircleShape(C.white);
   constructor (Aname: string, player: Player, affn = PathTile.affn++) {
     super(Aname, player);
-    this.afhex = AfHex.getAfHex(affn);
+    this.afhex = AfHex.getAfHex(affn); // the given affn, with random rotation.
     this.addChild(this.afhex);
     this.addChild(this.plyrDisk);
     this.plyrDisk.paint(player.color, true); // paint it once.

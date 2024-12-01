@@ -6,6 +6,41 @@ with placements to block opponent.
 
 evolved towards hexrules: vanilla Tiles, but edit the placement rules.
 
+## Rules
+
+Rules may be played (asserted) as Positive or Negative.
+
+Legal placements must satisfy ONE of the Positive rules and NONE of the Negative rules.
+
+Number of rule in play:
+|Players|2|3|4|5|6|
+|-------|-|-|-|-|-|
+|  Pos  | 1|   2|   2|   3|  3|
+|  Neg  | 1|   1|   2|   2|  3|
+
+On turn: (A) get|play-Tile and (B) get|play-Rule, in either order.
+
+play-Tile: per placement rules; 
+- Tile placed is *generally* permenant; 
+- some rules allow|require to remove a Tile before placement.
+
+get-Tile: draw from bag (or from Auction? paying with other tiles)
+
+get-Rule: top of deck  (or from Auction? paying with tiles)
+
+## Rule instances
+
+adjacent-to-color(red,green,orange)
+adjacent-to-shape(square, triangle, arc)
+adjacent-to-fill(fill, line)
+color-match, shape-match, fill-match,
+self-adjacent, other-adjacent
+two-adjacent, fill-gap (oppo-adjacent), three-adjacent ?
+three-in-line
+
+
+
+## Angular
 This project was generated with [Angular CLI](https://github.com/angular/angular-cli) version 15.2.10.
 
 ## Development server

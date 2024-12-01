@@ -1,4 +1,4 @@
-import { stime } from "@thegraid/common-lib"
+import { stime, Random } from "@thegraid/common-lib"
 import type { NamedObject } from "@thegraid/easeljs-lib"
 import { Container, Shape } from "@thegraid/easeljs-module"
 import { H, HexDir, TP } from "@thegraid/hexlib"
@@ -68,13 +68,14 @@ class AfMark extends Shape {
 
 /** Container of AfMark Shapes */
 export class AfHex extends Container {
-  rot = 0;
+  /** @deprecated advisory - for debug/analysis */
+  get rot() { return Math.round(this.rotation / 60) }
   /** return a cached Container with hex and AfMark[6] */
   constructor(
     public aShapes: ATS[],
     public aColors: AfColor[],
     public aFill: AfFill[],
-    public Aname = ``
+    public Aname = ``,
   ) {
     super()
     for (let ndx in aShapes) {
@@ -82,11 +83,12 @@ export class AfHex extends Container {
       let afm = new AfMark(ats, afc, aff, ds)
       this.addChild(afm)
     }
-    let w = TP.hexRad * H.sqrt3, h = TP.hexRad * 2 // see also: Hex2.cache()
+    this.mouseEnabled = false;
+    const w = TP.hexRad * H.sqrt3, h = TP.hexRad * 2 // see also: Hex2.cache()
     this.cache(-w / 2, -h / 2, w, h)
   }
   override clone() {
-    return new AfHex(this.aShapes, this.aColors, this.aFill, this.Aname)
+    return new AfHex(this.aShapes, this.aColors, this.aFill, this.Aname);
   }
 
   static allAfHexMap: Map<string, AfHex> = new Map();
@@ -115,14 +117,14 @@ export class AfHex extends Container {
     // pick a random rotation of each factor:
     // expect 16 x 16 x 4 = 1024 generated.
     for (let ats of atsPerm) {
-      // let atsr = AfHex.rotateAf(atsn, Math.round(Math.random() * atsn.length))
+      // let atsr = AfHex.rotateAf(atsn, Math.round(Random.random() * atsn.length))
       // rotated when placed on Hex2
       let atss = ats.join('');
       for (let afc of afcPerm) {
-        let afcr = AfHex.rotateAf(afc, Math.round(Math.random() * afcPerm.length))
+        let afcr = AfHex.rotateAf(afc, Math.round(Random.random() * afcPerm.length))
         let afcs = afcr.join('')
         for (let aff of affPerm) {
-          let affr = AfHex.rotateAf(aff, Math.round(Math.random() * affPerm.length))
+          let affr = AfHex.rotateAf(aff, Math.round(Random.random() * affPerm.length))
           let affs = affr.join('')
           let afhex = new AfHex(ats, afc, aff, `${atss}:${afcs}:${affs}`);
           afhex.Aname = `${atss}:${afcs}:${affs}`;
@@ -131,6 +133,7 @@ export class AfHex extends Container {
         }
       }
     }
+    console.log(stime(`AfHex`, `.makeAllAfHex: allAfHex`), AfHex.allAfHex);
   }
   static findPermutations(ary: any[]) {
     return AfHex.chooseNext(ary)
@@ -185,7 +188,6 @@ export class AfHex extends Container {
 
   static getAfHex(affn = Math.floor(Math.random() * AfHex.allAfHex.length), rot = Math.floor(Math.random() * 6)) {
     const afhex2 = AfHex.allAfHex[affn].clone();
-    afhex2.rot = rot;
     afhex2.rotation = 60 * rot; // degrees, not radians
     afhex2.aColors = AfHex.rotateAf(afhex2.aColors, rot)
     afhex2.aShapes = AfHex.rotateAf(afhex2.aShapes, rot)
