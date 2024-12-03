@@ -3,33 +3,47 @@ import { CircleShape, PaintableShape } from "@thegraid/easeljs-lib";
 import { HexShape, MapTile, Meeple, Player } from "@thegraid/hexlib";
 import { AfHex } from "./af-hex";
 
+// TODO: make a TileSource (bag of tile)
+// specialize Player & PlayerPanel, also GameState (see hexmarket)
+// dispense several PathTiles to each Player; to slots (see acquire)
+// Create RuleCard: -- (see hexcity?) with Source, and Panel for placement (Pos or Neg slots)
+// make a place on PlayerPanel for 'hand' of Rules
+//
+// may also have a deck of 'bonus' or 'goal' cards;
+// dispense 2 or 3 as public;
+// each player may acquire 1..3? private until reveal to claim points (& discard?)
+// 'group of tiles sum to X', 'group of tiles in tri/hex/line'
+// public bonus scored when tile is played
+// private can be delayed until player is ready to reveal
+// (risk that configuration may be broken)
+//
+// per turn:
+// -- choose action: Tile or Rule
+// DrawTile or PlaceTile (updating gameState) drag tile to map, rotate to satisfy Rules
+// DrawRule or PlaceRule
+
 /** MapTile with AfHex & plyrDisk overlays.
  *
- * apply AfHex and disk color at creation.
+ * apply AfHex at creation.
  *
- * show player/owner by adding a cube icon over disk
- * (pro'ly visible only if placed by opposing Player)
+ * show player/owner by plyrDisk color.
  */
 export class PathTile extends MapTile {
   static affn = 0;
   readonly afhex;
-  readonly plyrDisk = new CircleShape(C.white, PaintableShape.defaultRadius / 5, '');
+  readonly plyrDisk = new CircleShape(C.white, PaintableShape.defaultRadius / 3, '');
   constructor(Aname: string, player: Player | undefined, afhex: AfHex) {
     super(Aname, player);
-    this.afhex = afhex; AfHex.getAfHex
+    this.afhex = afhex;
     this.addChild(this.afhex);
     this.addChild(this.plyrDisk);
-    this.plyrDisk.paint(player?.color, true); // paint it once.
-    this.setPlayerAndPaint(undefined);
-  }
-  override setPlayerAndPaint(player: Player | undefined): this {
-    if (!this.afhex) return this; // abort when called by Tile.constructor:
-    return super.setPlayerAndPaint(player)
+    this.setPlayerAndPaint(player);
   }
 
-  override paint(colorn?: string): void {
-    super.paint(C.grey)
-    this.plyrDisk.paint(colorn ?? 'rgba(0,0,0,0)');
+  override paint(colorn = C.transparent): void {
+    this.plyrDisk.paint(colorn);
+    this.nameText.color = C.WHITE;
+    super.paint(C.BLACK);
   }
 
   override makeShape(): PaintableShape {

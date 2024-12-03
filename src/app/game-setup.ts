@@ -1,5 +1,5 @@
 import { Params } from '@angular/router';
-import { Constructor, Random } from '@thegraid/common-lib';
+import { Constructor, permute, Random } from '@thegraid/common-lib';
 import { GameSetup as GameSetupLib, Hex, Hex2, HexMap, MapCont, Player, Scenario as Scenario0, TP, Table, type Hex1 } from '@thegraid/hexlib';
 import { GamePlay } from './game-play';
 import { PathHex2 } from './path-hex';
@@ -30,13 +30,17 @@ export class GameSetup extends GameSetupLib {
     return;
   }
 
+  /** demo for bringup visualization */
   placeTilesOnMap() {
     PathTile.makeAllTiles();      // populate PathTile.allTiles
     const allTiles = PathTile.allTiles as PathTile[], ntiles = allTiles.length, allPlayers = Player.allPlayers;
     let nth = 0;
+    permute(allTiles)
     this.hexMap.forEachHex(hex => {
       const tile = allTiles[(nth++ % ntiles)]
-      const plyr = allPlayers[Math.floor(Random.random() * 3)]
+      const plyr = allPlayers[Math.floor(Random.random() * 4)]
+      if (!plyr) return;
+      tile.afhex.rotate(Math.floor(Random.random() * 6))
       tile.setPlayerAndPaint(plyr);
       tile.placeTile(hex as Hex1);
       return;
