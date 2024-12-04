@@ -1,4 +1,5 @@
 import { permute } from "@thegraid/common-lib";
+import { KeyBinder } from "@thegraid/easeljs-lib";
 import { Stage } from "@thegraid/easeljs-module";
 import { Hex2, Table, TP } from "@thegraid/hexlib";
 import type { GamePlay } from "./game-play";
@@ -36,5 +37,16 @@ export class PathTable extends Table {
 
   override panelLocsForNp(np: number): number[] {
     return [[], [0], [0, 2], [0, 1, 2], [0, 3, 4, 1], [0, 3, 4, 2, 1], [0, 3, 4, 5, 2, 1]][np];
+  }
+
+  get dragTile(): PathTile | undefined {
+    const dragging = this.isDragging;
+    return (dragging instanceof PathTile) ? dragging : undefined;
+  }
+
+  override bindArrowKeys(): void {
+    super.bindArrowKeys();
+    KeyBinder.keyBinder.setKey('w', () => this.dragTile?.rotate(-1))
+    KeyBinder.keyBinder.setKey('e', () => this.dragTile?.rotate(1))
   }
 }

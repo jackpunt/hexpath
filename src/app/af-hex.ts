@@ -132,12 +132,12 @@ export class AfHex extends NamedContainer {
     const atsIn = build(ns, AF.S, AF.T, AF.A);
     const afcIn = build(nc, AF.R, AF.G, AF.B);
     const affIn = build(nf, AF.F, AF.L);
-    let atsPerm = AfHex.findPermutations(atsIn);
-    let afcPerm = AfHex.findPermutations(afcIn);
-    let affPerm = AfHex.findPermutations(affIn);
-    console.log(stime(`AfHex`, `.makeAllAfHex: atsPerm`), atsPerm)
-    console.log(stime(`AfHex`, `.makeAllAfHex: afcPerm`), afcPerm)
-    console.log(stime(`AfHex`, `.makeAllAfHex: affPerm`), affPerm)
+    const atsPerm = AfHex.findPermutations(atsIn);
+    const afcPerm = AfHex.findPermutations(afcIn);
+    const affPerm = AfHex.findPermutations(affIn);
+    console.log(stime(`AfHex`, `.makeAllAfHex: atsPerm`), { atsPerm })
+    console.log(stime(`AfHex`, `.makeAllAfHex: afcPerm`), { afcPerm })
+    console.log(stime(`AfHex`, `.makeAllAfHex: affPerm`), { affPerm })
 
     AfHex.allAfHex.length = 0;
     AfHex.allAfHexMap.clear();
@@ -160,7 +160,7 @@ export class AfHex extends NamedContainer {
         }
       }
     }
-    console.log(stime(`AfHex`, `.makeAllAfHex: allAfHex`), AfHex.allAfHex);
+    console.log(stime(`AfHex`, `.makeAllAfHex: allAfHex`), { allAfHex: AfHex.allAfHex });
   }
   static findPermutations(ary: any[]) {
     return AfHex.chooseNext(ary)

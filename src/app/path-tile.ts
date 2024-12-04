@@ -73,6 +73,13 @@ export class PathTile extends MapTile {
       const tile = new PathTile(`T${n}`, undefined, afhex);
     })
   }
+
+  rotate(rot = 0) {
+    this.afhex.rotate(rot)
+    this.updateCache();
+    this.stage.update();
+    return;
+  }
 }
 export class PathMeep extends Meeple {
   loc = [1,2];
