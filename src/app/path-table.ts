@@ -1,7 +1,8 @@
+import { permute } from "@thegraid/common-lib";
 import { Stage } from "@thegraid/easeljs-module";
-import { Hex2, Table } from "@thegraid/hexlib";
+import { Hex2, Table, TP } from "@thegraid/hexlib";
 import type { GamePlay } from "./game-play";
-import type { GameSetup } from "./game-setup";
+import { PathTile } from "./path-tile";
 
 export class PathTable extends Table {
   constructor(stage: Stage) {
@@ -16,6 +17,24 @@ export class PathTable extends Table {
   override layoutTable(gamePlay: GamePlay): void {
     const { table, hexMap, gameSetup } = gamePlay;
     super.layoutTable(gamePlay);
-    ;(gameSetup as GameSetup).placeTilesOnMap()
+  }
+
+  override layoutTable2() {
+    this.initialVis = true;
+    super.layoutTable2();
+    const drawCol = 1.5;
+    const drawHex = this.newHex2(1, drawCol, 'drawHex') as Hex2; // map.HexC === AcqHex2
+    drawHex.distText.y = 0;
+    // drawHex.cont.visible = false;
+    PathTile.makeAllTiles();      // populate PathTile.allTiles
+    permute(PathTile.allTiles);
+    const source = PathTile.makeSource(drawHex, PathTile.allTiles);
+    source.counter.y -= TP.hexRad / 2;
+    this.addDoneButton();
+    return;
+  }
+
+  override panelLocsForNp(np: number): number[] {
+    return [[], [0], [0, 2], [0, 1, 2], [0, 3, 4, 1], [0, 3, 4, 2, 1], [0, 3, 4, 5, 2, 1]][np];
   }
 }

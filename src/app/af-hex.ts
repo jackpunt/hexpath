@@ -1,7 +1,9 @@
 import { Random, rotateAry, stime } from "@thegraid/common-lib"
 import { NamedContainer, type NamedObject } from "@thegraid/easeljs-lib"
 import { Shape } from "@thegraid/easeljs-module"
-import { H, HexDir, TP } from "@thegraid/hexlib"
+import { H, HexDir } from "@thegraid/hexlib"
+import { TP } from "./table-params"
+
 
 /** affinity in three dimensions: Shape(A,T,S), Color(R,G,B=orange), Fill(LINE, FILL) */
 export namespace AF {

@@ -1,7 +1,8 @@
 import { C } from "@thegraid/common-lib";
 import { CircleShape, PaintableShape } from "@thegraid/easeljs-lib";
-import { HexShape, MapTile, Meeple, Player } from "@thegraid/hexlib";
+import { HexShape, MapTile, Meeple, Player, TileSource, type Hex2 } from "@thegraid/hexlib";
 import { AfHex } from "./af-hex";
+
 
 // TODO: make a TileSource (bag of tile)
 // specialize Player & PlayerPanel, also GameState (see hexmarket)
@@ -29,6 +30,19 @@ import { AfHex } from "./af-hex";
  * show player/owner by plyrDisk color.
  */
 export class PathTile extends MapTile {
+
+  declare static allTiles: PathTile[];
+
+  static source: TileSource<PathTile>;
+
+  // make a source for the given AcqTile[]
+  static makeSource(hex: Hex2, tiles = PathTile.allTiles) {
+    const source = PathTile.makeSource0(TileSource<PathTile>, PathTile, hex);
+    tiles.forEach(unit => source.availUnit(unit));
+    source.nextUnit();  // unit.moveTo(source.hex)
+    return source;
+  }
+
   static affn = 0;
   readonly afhex;
   readonly plyrDisk = new CircleShape(C.white, PaintableShape.defaultRadius / 3, '');

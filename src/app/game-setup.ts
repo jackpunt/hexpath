@@ -30,24 +30,6 @@ export class GameSetup extends GameSetupLib {
     return;
   }
 
-  /** demo for bringup visualization */
-  placeTilesOnMap() {
-    PathTile.makeAllTiles();      // populate PathTile.allTiles
-    const allTiles = PathTile.allTiles as PathTile[], ntiles = allTiles.length, allPlayers = Player.allPlayers;
-    let nth = 0;
-    permute(allTiles)
-    this.hexMap.forEachHex(hex => {
-      const tile = allTiles[(nth++ % ntiles)]
-      const plyr = allPlayers[Math.floor(Random.random() * 4)]
-      if (!plyr) return;
-      tile.afhex.rotate(Math.floor(Random.random() * 6))
-      tile.setPlayerAndPaint(plyr);
-      tile.placeTile(hex as Hex1);
-      return;
-    })
-    this.update()
-    return;
-  }
   update() {
     const hexCont = this.hexMap.mapCont?.hexCont;
     hexCont?.cacheID && hexCont.updateCache()  // when toggleText: hexInspector
