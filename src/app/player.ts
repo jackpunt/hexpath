@@ -1,7 +1,8 @@
-import { C, stime } from "@thegraid/common-lib"
-import { GamePlay as GamePlayLib, Hex1 as Hex1Lib, HexMap as HexMapLib, newPlanner, NumCounterBox, Player as PlayerLib } from "@thegraid/hexlib"
-import { GamePlay } from "./game-play"
-import { TP } from "./table-params"
+import { stime } from "@thegraid/common-lib";
+import { GamePlay as GamePlayLib, Hex1 as Hex1Lib, Hex2, HexMap as HexMapLib, newPlanner, NumCounterBox, Player as PlayerLib } from "@thegraid/hexlib";
+import { GamePlay } from "./game-play";
+import { PathTile } from "./path-tile";
+import { TP } from "./table-params";
 
 const playerColors = ['red', 'lightblue', 'green', 'violet', 'gold'] as const;
 export type PlayerColor = typeof playerColors[number];
@@ -57,6 +58,7 @@ export class Player extends PlayerLib {
   // Test/demo EditNumber
   override makePlayerBits(): void {
     super.makePlayerBits()
+    this.makeTileRack();
     // TODO:
     // make TileSource for each plane size
     // make places for acquired cards (hand & in-play policies/events)
@@ -66,4 +68,41 @@ export class Player extends PlayerLib {
     const cc = this.coinCounter = new NumCounterBox('coins', TP.initialCoins);
     this.panel.addChild(cc); cc.x = this.panel.metrics.wide - k; cc.y = k
   }
+
+  xyFromMap(row = 0, col = 0, panel = this.panel, map = this.gamePlay.hexMap) {
+    const xywh = Hex2.xywh(undefined, undefined, row, col)
+    const xy = map.mapCont.hexCont.localToLocal(xywh.x, xywh.y, panel, xywh); // offset from hexCont to panel
+    return xywh;
+  }
+
+  readonly tileRack: Hex2[] = [];
+  makeTileRack(n = 4) {
+    this.tileRack.length = 0;
+    const panel = this.panel, ndx = this.index;
+    const map = this.gamePlay.hexMap, row = .73;
+    const { x, y } = this.xyFromMap(0, 0); // offset from hexCont to panel
+    const { wide } = panel.metrics
+    const { x: xn } = Hex2.xywh(undefined, undefined, 0, n - 1)
+    const dx = (wide - xn) / 2;
+    for (let i = 0; i < n; i++) {
+      const hex = new Hex2(map, row, i, `${ndx}H${i}`) // not on map!
+      this.tileRack.push(hex);
+      hex.cont.x += (-x + dx);
+      hex.cont.y += (-y + 0);
+      hex.cont.visible = false;
+      hex.legalMark.setOnHex(hex)
+      // panel.addChild(hex.cont)
+    }
+  }
+
+  /** placeTile on Player's panel, in empty hex. */
+  drawTile() {
+    const rack = this.tileRack.find(hex => !hex.tile) as Hex2;
+    if (!rack) return;
+    const tile = PathTile.source.takeUnit();
+    tile?.placeTile(rack);
+    // console.log(stime(this, `.newTile: ${this.Aname}`), this.acqTiles.map(t => t?.Aname), this.acqTiles)
+    return !!tile;
+  }
+
 }

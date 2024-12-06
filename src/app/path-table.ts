@@ -1,8 +1,8 @@
 import { permute } from "@thegraid/common-lib";
-import { KeyBinder } from "@thegraid/easeljs-lib";
 import { Stage } from "@thegraid/easeljs-module";
 import { Hex2, Table, TP } from "@thegraid/hexlib";
 import type { GamePlay } from "./game-play";
+import type { Scenario } from "./game-setup";
 import { PathTile } from "./path-tile";
 
 export class PathTable extends Table {
@@ -10,6 +10,7 @@ export class PathTable extends Table {
     super(stage);
     this.initialVis = true;
   }
+  declare gamePlay: GamePlay;
 
   override makeRecycleHex(row?: number | undefined, col?: number | undefined): Hex2 {
     return undefined as any as Hex2;
@@ -35,6 +36,24 @@ export class PathTable extends Table {
     return;
   }
 
+  /**
+   * last action of curPlayer is to draw their next tile.
+   */
+  override addDoneButton() {
+    const rv = super.addDoneButton(undefined, 250, 550); // table.doneButton('Done')
+    this.doneClick0 = this.doneClicked; // override
+    this.doneClicked = (ev) => {
+      this.playerDone(ev);
+    };
+    this.doneButton.activate(true)
+    return rv;
+  }
+  doneClick0 = this.doneClicked;
+  playerDone(evt: any) {
+    this.gamePlay.playerDone();
+    this.doneClick0(evt);          // this.gamePlay.phaseDone();
+  }
+
   override panelLocsForNp(np: number): number[] {
     return [[], [0], [0, 2], [0, 1, 2], [0, 3, 4, 1], [0, 3, 4, 2, 1], [0, 3, 4, 5, 2, 1]][np];
   }
@@ -44,9 +63,8 @@ export class PathTable extends Table {
     return (dragging instanceof PathTile) ? dragging : undefined;
   }
 
-  override bindArrowKeys(): void {
-    super.bindArrowKeys();
-    KeyBinder.keyBinder.setKey('w', () => this.dragTile?.rotate(-1))
-    KeyBinder.keyBinder.setKey('e', () => this.dragTile?.rotate(1))
+  override startGame(scenario: Scenario) {
+    super.startGame(scenario); // allTiles.makeDragable()
+    this.gamePlay.gameState.start();   // enable Table.GUI to drive game state.
   }
 }

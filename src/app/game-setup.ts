@@ -1,10 +1,10 @@
 import { Params } from '@angular/router';
-import { Constructor, permute, Random } from '@thegraid/common-lib';
-import { GameSetup as GameSetupLib, Hex, Hex2, HexMap, MapCont, Player, Scenario as Scenario0, TP, Table, type Hex1 } from '@thegraid/hexlib';
+import { GameSetup as GameSetupLib, HexMap, MapCont, Scenario as Scenario0, Table, TP, type Hex1 } from '@thegraid/hexlib';
 import { GamePlay } from './game-play';
-import { PathHex2 } from './path-hex';
+import { PathHex2 as Hex2 } from './path-hex';
 import { PathTable } from './path-table';
 import { PathTile } from './path-tile';
+import { Player } from './player';
 
 // type Params = {[key: string]: any;}; // until hexlib supplies
 export interface Scenario extends Scenario0 {
@@ -36,9 +36,9 @@ export class GameSetup extends GameSetupLib {
     hexCont?.stage?.update();
   }
   override makeHexMap() {
-    const hexMap = new HexMap<PathHex2>(TP.hexRad, true, Hex2 as Constructor<Hex>);
+    const hexMap = new HexMap<Hex2>(TP.hexRad, true, Hex2);
     const cNames = MapCont.cNames.concat() as string[]; // for example
-    hexMap.addToMapCont(PathHex2, cNames);       // addToMapCont(hexC, cNames)
+    hexMap.addToMapCont(Hex2, cNames);       // addToMapCont(hexC, cNames)
     hexMap.makeAllDistricts();               // determines size for this.bgRect
     return hexMap;
   }
@@ -51,7 +51,21 @@ export class GameSetup extends GameSetupLib {
     return new GamePlay(this, scenario);
   }
 
-  override startScenario(scenario: Scenario0): GamePlay {
+  override makePlayer(ndx: number, gamePlay: GamePlay) {
+    return new Player(ndx, gamePlay);
+  }
+
+  override startScenario(scenario: Scenario0) {
     return super.startScenario(scenario)
+  }
+  /** demo for bringup visualization */
+  placeTilesOnMap() {
+    this.hexMap.forEachHex(hex => {
+      const tile = PathTile.source.takeUnit();
+      tile.placeTile(hex as Hex1);
+      return;
+    })
+    this.update()
+    return;
   }
 }

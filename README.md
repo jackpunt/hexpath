@@ -20,13 +20,22 @@ Number of rule in play:
 
 On turn: (A) get|play-Tile and (B) get|play-Rule, in either order.
 
+get-Tile: draw from bag (discard below hand-limit: ~3)
+
 play-Tile: per placement rules; 
 - Tile placed is *generally* permenant; 
 - some rules allow|require to remove a Tile before placement.
+- placement must satisfy all edge & location rules
+- score (value of edge rule(s) X number of edge joints) + (value of location rules)
 
-get-Tile: draw from bag (or from Auction? paying with other tiles)
+get-Rule: top of deck [maybe one face-up? pay its cost; maybe one face-up per player?]
+- pay 1 to get top of deck
 
-get-Rule: top of deck  (or from Auction? paying with tiles)
+play-Rule: [number of rules in play increases to number of players, does not decrease]
+- pay cost to invert existing rule
+- pay cost to assert new rule (playing from hand) if there is empty slot
+- pay cost to remove existing rule & pay cost to assert new rule (playing from hand)
+
 
 ## Rule instances
 
@@ -38,7 +47,36 @@ self-adjacent, other-adjacent
 two-adjacent, fill-gap (oppo-adjacent), three-adjacent ?
 three-in-line
 
+two types of rules: 
+  - constraint on edge joins (eg matching attributes)
+  - constraint on tile location (eq in rows, cluster, triangle, ...)
 
+quantify number of edges: n = all(*) any(?) exact([ 0..6 ]) lt(<n) !lt(!<n) gt(>n) !gt(!>n)
+
+|Rule          |cost| n |notes[value]|invert[value]|
+|--------------|----|---|-----|------|
+|all other red | 1  | * | (o.color == red) | (o.color != red) |
+|all self red  | 1  | * | (s.color == red) | (s.color != red) |
+|all joins red | 2  | * | (s.color == red && o.color == red) | 
+| no joins red | 1  | * | (s.color != red && o.color != red) [0] |
+|2 color match | 1  | 2 | (s.color == o.color) | (s.color != o.color) [0] |
+|5+ factor match| 1 | ? | count(s.? == o.?) ge 5 | count(s.? == o.?) le 5 |
+|--------------|----|---|-----|------|
+|**loc rules**:|cost| n |notes[value]|invert[value]|
+|center of 3   | 1 | ? | count(adj(dir) && adj(dir.rev)) |
+|center of my 3| 1 | ? | count(adj(dir,plyr) && adj(dir.rev,plyr)) |
+|a line of mine| 2 | ? | max(line(dir3,plyr)) | bonus vs constraint? |
+|fill gap      | 1 | ? | gap() |
+|fill gap mine | 1 | ? | gap(plyr) |
+|solo          | 1 | 0 | count(adj(dir,plyr)) | as constraint | 
+|cluster       | 2 | ? | count(adj(dir,plyr)) | as bonus |
+|cluster       | 3 | 3+| count(adj(dir,plyr)) | as constraint | 
+|network       | 3 | 5+| size(paths(plyr)) | bonus? |
+
+gap(plyr?) { 
+  count(dir3: adj(dir,plyr) && adj(dir.rev,plyr)) eq 1 
+  && count(adj(dir,plyr)) eq 2
+}
 
 ## Angular
 This project was generated with [Angular CLI](https://github.com/angular/angular-cli) version 15.2.10.

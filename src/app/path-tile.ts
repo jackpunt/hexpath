@@ -65,7 +65,7 @@ export class PathTile extends MapTile {
   }
 
   static makeAllTiles() {
-    AfHex.makeAllAfHex(3, 2, 2);  // make them all once: (3,2,1) => 64 Tiles
+    AfHex.makeAllAfHex();  // make them all once: (3,2,1) => 64 Tiles
     // GameSetup.initialize() -> AfHex.makeAllAfHex()
     // GameSetup.startScenario() -> layoutTable() -> makeAllPlayers()
     // make a Tile for each AfHex.
@@ -80,6 +80,12 @@ export class PathTile extends MapTile {
     this.stage.update();
     return;
   }
+
+  // Not actually useful/necessary to recache AfHex
+  // override cache(x: number, y: number, width: number, height: number, scale?: number): void {
+  //   this.afhex?.reCache(scale);
+  //   super.cache(x, y, width, height, scale);
+  // }
 }
 export class PathMeep extends Meeple {
   loc = [1,2];

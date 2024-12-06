@@ -14,15 +14,15 @@ export namespace AF {
   export const G = 'g' // green
   export const B = 'b' // blue
   export const L = 'l' // LINE (hollow)
-  export const F = 'f' // FILL (filled)
+  export const F = 'f' // FILL (solid)
   // to get type Zcolor, we can't use: C.RED, C.GREEN, C.BLUE
   export const zcolor = { r: 'RED', g: 'GREEN', b: 'ORANGE' } as const
   export const fill = { l: 'line', f: 'fill'} as const
 }
-const ATSa = [AF.A, AF.T, AF.S] as const
+const ATSa = [AF.S, AF.T, AF.A] as const
 export type ATS = typeof ATSa[number];
 
-export const ZColor = [AF.R, AF.B, AF.G] as const
+export const ZColor = [AF.R, AF.G, AF.B] as const
 export type AfColor = typeof ZColor[number];
 
 const LSa = [AF.F, AF.L] as const
@@ -36,11 +36,12 @@ class AfMark extends Shape implements NamedObject {
   Aname: string;
   /** draw AfMark on North edge. */
   drawAfMark(afType: ATS, afc: AfColor, aff: AfFill) {
-    let color: Zcolor = AF.zcolor[afc]
-    let wm = (TP.hexRad * .4), w2 = wm / 2;
-    let k = -1, wl = 2, y0 = k + TP.hexRad * H.sqrt3 / 2, y1 = w2 * .87 - y0
-    let arc0 = 0 * (Math.PI / 2), arclen = Math.PI
-    let g = this.graphics
+    const color: Zcolor = AF.zcolor[afc];
+    const wm = (TP.hexRad * TP.afSize), w2 = wm / 2; // size of mark
+    const wl = TP.afWide; // line thickness (StrokeStyle)
+    const k = -1, y0 = k + TP.hexRad * H.sqrt3 / 2, y1 = w2 * .87 - y0
+    const arc0 = 0 * (Math.PI / 2), arclen = Math.PI
+    const g = this.graphics
     // ss(wl) = setStrokeStyle(width, caps, joints, miterlimit, ignoreScale)
     // g.s(afc) == beginStroke; g.f(afc) == beginFill
     if (aff == AF.L) { g.ss(wl).s(color) } else { g.f(color) }
@@ -80,15 +81,23 @@ export class AfHex extends NamedContainer {
     Aname = ``,
   ) {
     super(Aname)
+    // assert: six shapes for six sides:
     for (let ndx in aShapes) {
       let ats = aShapes[ndx], afc = aColors[ndx], aff = aFill[ndx], ds = H.ewDirs[ndx]
       let afm = new AfMark(ats, afc, aff, ds)
       this.addChild(afm)
     }
     this.mouseEnabled = false;
-    const w = TP.hexRad * H.sqrt3, h = TP.hexRad * 2 // see also: Hex2.cache()
-    this.cache(-w / 2, -h / 2, w, h)
+    this.reCache()
   }
+
+  /** could be called from Tile.reCache() if that were necessary... */
+  reCache(scale = TP.cacheTiles) {
+    if (this.cacheID) this.uncache();
+    const w = TP.hexRad * H.sqrt3, h = TP.hexRad * 2 // see also: Hex2.cache()
+    this.cache(-w / 2, -h / 2, w, h, scale)
+  }
+
   override clone() {
     return new AfHex(this.aShapes, this.aColors, this.aFill, this.Aname);
   }
@@ -115,12 +124,18 @@ export class AfHex extends NamedContainer {
    * annotated with shape[6]: [a,s,t] and color[6]: [r,g,b] and fill[6]: [l,f]
    * each annotation rotated to align with ewDirs
    *
-   * @param nc number of colors 1|2|3
-   * @param ns number of shapes 1|2|3
-   * @param nf number of fills 1|2
+   * @param nSCF number of Shapes, Color, Fill: [TP.afSCF] up to size of shapes, colors, fills
+   * @param shapes [AF.S, AF.A, AF.T]
+   * @param colors [AF.R, AF.G, AF.B]
+   * @param fills  [AF.F, AF.L]
    */
-  static makeAllAfHex(nc = 3, ns = 3, nf = 2) {
+  static makeAllAfHex(scf = TP.afSCF,
+    shapes = ATSa.concat(),   //[AF.S, AF.T, AF.A],
+    colors = ZColor.concat(), // [AF.R, AF.G, AF.B]
+    fills = LSa.concat(),     // [AF.F, AF.L]
+  ) {
     // make all Square, RGB, Filled
+    const [ns, nc, nf] = scf;
     const nOfEach = (nt: number) => 6 / nt; // assert: (6 % nt === 0)
     const build = (nt: number, ...elts: any[]) => {
       const rv = new Array(6), ne = nOfEach(nt);
@@ -129,9 +144,9 @@ export class AfHex extends NamedContainer {
       }
       return rv;
     }
-    const atsIn = build(ns, AF.S, AF.T, AF.A);
-    const afcIn = build(nc, AF.R, AF.G, AF.B);
-    const affIn = build(nf, AF.F, AF.L);
+    const atsIn = build(ns, ...shapes);
+    const afcIn = build(nc, ...colors);
+    const affIn = build(nf, ...fills);
     const atsPerm = AfHex.findPermutations(atsIn);
     const afcPerm = AfHex.findPermutations(afcIn);
     const affPerm = AfHex.findPermutations(affIn);
@@ -144,16 +159,16 @@ export class AfHex extends NamedContainer {
     // pick a random rotation of each factor:
     // expect 16 x 16 x 4 = 1024 generated.
     for (let ats of atsPerm) {
-      // let atsr = rotateAry(atsn, Math.round(Random.random() * atsn.length))
+      let atsr = ats;// rotateAry(ats, Math.round(Random.random() * ats.length))
       // rotated when placed on Hex2
-      let atss = ats.join('');
+      let atss = atsr.join('');
       for (let afc of afcPerm) {
         let afcr = rotateAry(afc, Math.round(Random.random() * afcPerm.length))
         let afcs = afcr.join('')
         for (let aff of affPerm) {
           let affr = rotateAry(aff, Math.round(Random.random() * affPerm.length))
           let affs = affr.join('')
-          let afhex = new AfHex(ats, afc, aff, `${atss}:${afcs}:${affs}`);
+          let afhex = new AfHex(atsr, afcr, affr, `${atss}:${afcs}:${affs}`);
           afhex.Aname = `${atss}:${afcs}:${affs}`;
           AfHex.allAfHexMap.set(afhex.Aname, afhex);
           AfHex.allAfHex.push(afhex);
@@ -175,9 +190,9 @@ export class AfHex extends NamedContainer {
    * @returns
    */
   static chooseNext(items: any[], found: any[][] = [], chosen: any[] = []) {
-    // assert: left is sorted
-    // done: 0012 left: 12 --> 001212, 001221
-    // append lowest(left) to done, then chooseNext
+    // assert: items is sorted [identical values are adjacent]
+    // done: 0012 items: 12 --> 001212, 001221
+    // append lowest(item) to done, then chooseNext
     for (let ndx = 0; ndx < items.length; ndx++) {
       let next = items[ndx]
       if (next === items[ndx - 1]) continue // because 'sorted': skip all identical elements
