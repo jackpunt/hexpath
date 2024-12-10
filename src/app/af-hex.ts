@@ -1,13 +1,13 @@
 import { Random, rotateAry, stime } from "@thegraid/common-lib"
 import { NamedContainer, type NamedObject } from "@thegraid/easeljs-lib"
 import { Shape } from "@thegraid/easeljs-module"
-import { H, HexDir } from "@thegraid/hexlib"
+import { H, HexDir, type EwDir, type NsDir } from "@thegraid/hexlib"
 import { TP } from "./table-params"
 
 
 /** affinity in three dimensions: Shape(A,T,S), Color(R,G,B=orange), Fill(LINE, FILL) */
 export namespace AF {
-  export const A = 'a' // Arc (was C for circle...)
+  export const A = 'a' // Arc
   export const T = 't' // Triangle
   export const S = 's' // Square (rectangle)
   export const R = 'r' // red
@@ -15,28 +15,30 @@ export namespace AF {
   export const B = 'b' // blue
   export const L = 'l' // LINE (hollow)
   export const F = 'f' // FILL (solid)
-  // to get type Zcolor, we can't use: C.RED, C.GREEN, C.BLUE
-  export const zcolor = { r: 'RED', g: 'GREEN', b: 'ORANGE' } as const
-  export const fill = { l: 'line', f: 'fill'} as const
+  // set color name for each AfColor. sadly, we can't use: C.RED, C.GREEN, C.BLUE
+  export const colorn: Record<AfColor, string> = { r: 'RED', g: 'GREEN', b: 'ORANGE' } as const;
 }
-const ATSa = [AF.S, AF.T, AF.A] as const
-export type ATS = typeof ATSa[number];
+const ATSaC = [AF.S, AF.T, AF.A] as const
+type AfShape = typeof ATSaC[number];
 
-export const ZColor = [AF.R, AF.G, AF.B] as const
-export type AfColor = typeof ZColor[number];
+const RGBaC = [AF.R, AF.G, AF.B] as const
+type AfColor = typeof RGBaC[number];
 
-const LSa = [AF.F, AF.L] as const
-export type AfFill = typeof LSa[number];
+const FLaC = [AF.F, AF.L] as const
+type AfFill = typeof FLaC[number];
 
-export type ZcolorKey = keyof typeof AF.zcolor;
-export type Zcolor = typeof AF.zcolor[ZcolorKey];
+type SCF = [AfShape, AfColor, AfFill];
+
+export const ShapeA = ATSaC.concat();
+export const ColorA = RGBaC.concat();
+export const FillA = FLaC.concat();
 
 /** a Mark (one of six) on the edge of Hex2 to indicate affinity */
 class AfMark extends Shape implements NamedObject {
   Aname: string;
   /** draw AfMark on North edge. */
-  drawAfMark(afType: ATS, afc: AfColor, aff: AfFill) {
-    const color: Zcolor = AF.zcolor[afc];
+  drawAfMark(afs: AfShape, afc: AfColor, aff: AfFill) {
+    const color = AF.colorn[afc];
     const wm = (TP.hexRad * TP.afSize), w2 = wm / 2; // size of mark
     const wl = TP.afWide; // line thickness (StrokeStyle)
     const k = -1, y0 = k + TP.hexRad * H.sqrt3 / 2, y1 = w2 * .87 - y0
@@ -46,47 +48,55 @@ class AfMark extends Shape implements NamedObject {
     // g.s(afc) == beginStroke; g.f(afc) == beginFill
     if (aff == AF.L) { g.ss(wl).s(color) } else { g.f(color) }
     g.mt(-w2, 0 - y0);
-    (afType == AF.A) ?
+    (afs == AF.A) ?
       //g.at(0, y1, w2, 0 - y0, w2) : // one Arc
       g.arc(0, 0 - y0, w2, arc0, arc0 + arclen, false) :
-      (afType == AF.T) ?
+      (afs == AF.T) ?
         g.lt(0, y1).lt(w2, 0 - y0) : // two Lines
-        (afType == AF.S) ?
+        (afs == AF.S) ?
           g.lt(-w2, y1).lt(w2, y1).lt(w2, 0 - y0) : // three Lines
           undefined;
           // endStroke() or endFill()
     if (aff == AF.L) { g.es() } else { g.ef() }
     return g
   }
-  // draw in N orientation, rotate by ds;
-  constructor(shape: ATS, color: AfColor, fill: AfFill, ds: HexDir) {
+  // draw in N orientation, rotate to dir;
+  constructor(dir: HexDir, shape: AfShape, color: AfColor, fill: AfFill) {
     super();
     this.Aname = this.name = `AfMark:${shape},${color},${fill}`;  // for debug, not production
     this.drawAfMark(shape, color, fill);
     this.mouseEnabled = false;
-    this.rotation = H.dirRot[ds];
+    this.rotation = H.dirRot[dir];
   }
 }
 /** Affinity keys in AfHex */
-export type AfKey = keyof Pick<AfHex, 'aShapes' | 'aColors' | 'aFill'>
+export type AfKey = keyof Pick<AfHex, 'aShapes' | 'aColors' | 'aFills'>
 /** Container of AfMark Shapes */
 export class AfHex extends NamedContainer {
+  static afKeys: AfKey[] = ['aShapes', 'aColors', 'aFills'];
   /** @deprecated advisory - for debug/analysis */
   get rot() { return Math.round(this.rotation / 60) }
-  /** return a cached Container with hex and AfMark[6] */
+  /**
+   * return a cached Container with 6 AfMark children
+   * @param aShapes 6 shapes from AfShape
+   * @param aColors 6 colors from AfColor
+   * @param aFills  6 fills from AfFill
+   * @param Aname
+   */
   constructor(
-    public aShapes: ATS[],
+    public aShapes: AfShape[],
     public aColors: AfColor[],
-    public aFill: AfFill[],
+    public aFills: AfFill[],
     Aname = ``,
   ) {
     super(Aname)
-    // assert: six shapes for six sides:
-    for (let ndx in aShapes) {
-      let ats = aShapes[ndx], afc = aColors[ndx], aff = aFill[ndx], ds = H.ewDirs[ndx]
-      let afm = new AfMark(ats, afc, aff, ds)
+    const hexdirs = TP.useEwTopo ? H.ewDirs : H.nsDirs;
+    // make AfMark(shape,color,fill0 for each of six sides
+    hexdirs.forEach((dir, ndx) => {
+      const scf = AfHex.afKeys.map(key => this[key][ndx]) as SCF;
+      const afm = new AfMark(dir, ...scf);
       this.addChild(afm)
-    }
+    })
     this.mouseEnabled = false;
     this.reCache()
   }
@@ -99,7 +109,7 @@ export class AfHex extends NamedContainer {
   }
 
   override clone() {
-    return new AfHex(this.aShapes, this.aColors, this.aFill, this.Aname);
+    return new AfHex(this.aShapes, this.aColors, this.aFills, this.Aname);
   }
 
   /** increase rotation by rot;
@@ -109,7 +119,11 @@ export class AfHex extends NamedContainer {
     this.rotation += 60 * rot; // degrees, not radians
     this.aColors = rotateAry(this.aColors, rot)
     this.aShapes = rotateAry(this.aShapes, rot)
-    this.aFill = rotateAry(this.aFill, rot)
+    this.aFills = rotateAry(this.aFills, rot)
+  }
+  scf(dir: HexDir) {
+    const ndx = TP.useEwTopo ? H.ewDirs.indexOf(dir as EwDir) : H.nsDirs.indexOf(dir as NsDir)
+    return [this.aShapes[ndx], this.aColors[ndx], this.aFills[ndx]] as SCF;
   }
 
   static allAfHexMap: Map<string, AfHex> = new Map();
@@ -125,14 +139,14 @@ export class AfHex extends NamedContainer {
    * each annotation rotated to align with ewDirs
    *
    * @param nSCF number of Shapes, Color, Fill: [TP.afSCF] up to size of shapes, colors, fills
-   * @param shapes [AF.S, AF.A, AF.T]
-   * @param colors [AF.R, AF.G, AF.B]
-   * @param fills  [AF.F, AF.L]
+   * @param shapes ShapeA [AF.S, AF.A, AF.T]
+   * @param colors ColorA [AF.R, AF.G, AF.B]
+   * @param fills  FillA [AF.F, AF.L]
    */
   static makeAllAfHex(scf = TP.afSCF,
-    shapes = ATSa.concat(),   //[AF.S, AF.T, AF.A],
-    colors = ZColor.concat(), // [AF.R, AF.G, AF.B]
-    fills = LSa.concat(),     // [AF.F, AF.L]
+    shapes = ShapeA,   // [AF.S, AF.T, AF.A],
+    colors = ColorA,   // [AF.R, AF.G, AF.B]
+    fills = FillA,     // [AF.F, AF.L]
   ) {
     // make all Square, RGB, Filled
     const [ns, nc, nf] = scf;
