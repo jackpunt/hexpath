@@ -19,13 +19,13 @@ export namespace AF {
   export const colorn: Record<AfColor, string> = { r: 'RED', g: 'GREEN', b: 'ORANGE' } as const;
 }
 const ATSaC = [AF.S, AF.T, AF.A] as const
-type AfShape = typeof ATSaC[number];
+export type AfShape = typeof ATSaC[number];
 
 const RGBaC = [AF.R, AF.G, AF.B] as const
-type AfColor = typeof RGBaC[number];
+export type AfColor = typeof RGBaC[number];
 
 const FLaC = [AF.F, AF.L] as const
-type AfFill = typeof FLaC[number];
+export type AfFill = typeof FLaC[number];
 
 type SCF = [AfShape, AfColor, AfFill];
 
@@ -121,6 +121,8 @@ export class AfHex extends NamedContainer {
     this.aShapes = rotateAry(this.aShapes, rot)
     this.aFills = rotateAry(this.aFills, rot)
   }
+
+  /** return [shape, color, fill] of indicated edge */
   scf(dir: HexDir) {
     const ndx = TP.useEwTopo ? H.ewDirs.indexOf(dir as EwDir) : H.nsDirs.indexOf(dir as NsDir)
     return [this.aShapes[ndx], this.aColors[ndx], this.aFills[ndx]] as SCF;
