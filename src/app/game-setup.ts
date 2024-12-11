@@ -1,7 +1,7 @@
 import { Params } from '@angular/router';
-import { GameSetup as GameSetupLib, HexMap, MapCont, Scenario as Scenario0, Table, TP, type Hex1 } from '@thegraid/hexlib';
+import { GameSetup as GameSetupLib, MapCont, Scenario as Scenario0, Table, TP, type Hex1 } from '@thegraid/hexlib';
 import { GamePlay } from './game-play';
-import { PathHex2 as Hex2 } from './path-hex';
+import { PathHex2 as Hex2, HexMap2 } from './path-hex';
 import { PathTable } from './path-table';
 import { PathTile } from './path-tile';
 import { Player } from './player';
@@ -36,7 +36,7 @@ export class GameSetup extends GameSetupLib {
     hexCont?.stage?.update();
   }
   override makeHexMap() {
-    const hexMap = new HexMap<Hex2>(TP.hexRad, true, Hex2);
+    const hexMap = new HexMap2(TP.hexRad, true, Hex2);
     const cNames = MapCont.cNames.concat() as string[]; // for example
     hexMap.addToMapCont(Hex2, cNames);       // addToMapCont(hexC, cNames)
     hexMap.makeAllDistricts();               // determines size for this.bgRect

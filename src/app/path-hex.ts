@@ -1,4 +1,4 @@
-import { Hex1 as Hex1Lib, Hex2Mixin } from "@thegraid/hexlib";
+import { Hex1 as Hex1Lib, Hex2Mixin, HexMap } from "@thegraid/hexlib";
 import type { PathMeep, PathTile } from "./path-tile";
 
 
@@ -20,4 +20,8 @@ class PathHex2Lib extends Hex2Mixin(PathHex) {};
 export class PathHex2 extends PathHex2Lib {
   override tile: PathTile | undefined; // uses get/set from Hex2Mixin(PathHex)
   override meep: PathMeep | undefined;
+}
+
+export class HexMap2 extends HexMap<PathHex2> {
+
 }

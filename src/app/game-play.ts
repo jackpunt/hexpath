@@ -1,9 +1,10 @@
-import { GamePlay as GamePlayLib, Scenario } from "@thegraid/hexlib";
-import { GameSetup } from "./game-setup";
-import type { Player } from "./player";
-import { GameState } from "./game-state";
 import { KeyBinder } from "@thegraid/easeljs-lib";
+import { GamePlay as GamePlayLib, Scenario, type HexMap } from "@thegraid/hexlib";
+import { GameSetup } from "./game-setup";
+import { GameState } from "./game-state";
+import type { PathHex } from "./path-hex";
 import type { PathTable } from "./path-table";
+import type { Player } from "./player";
 import { TP } from "./table-params";
 
 
@@ -13,6 +14,7 @@ export class GamePlay extends GamePlayLib {
   }
   override readonly gameState: GameState = new GameState(this);
   declare gameSetup: GameSetup;
+  declare hexMap: HexMap<PathHex>
 
   declare curPlayer: Player;
   override startTurn() {

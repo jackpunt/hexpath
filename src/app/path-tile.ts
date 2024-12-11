@@ -35,7 +35,7 @@ export class PathTile extends MapTile {
 
   static source: TileSource<PathTile>;
 
-  // make a source for the given AcqTile[]
+  // make a source for the given PathTile[]
   static makeSource(hex: Hex2, tiles = PathTile.allTiles) {
     const source = PathTile.makeSource0(TileSource<PathTile>, PathTile, hex);
     tiles.forEach(unit => source.availUnit(unit));
@@ -43,7 +43,6 @@ export class PathTile extends MapTile {
     return source;
   }
 
-  static affn = 0;
   readonly afhex;
   readonly plyrDisk = new CircleShape(C.white, PaintableShape.defaultRadius / 3, '');
   constructor(Aname: string, player: Player | undefined, afhex: AfHex) {

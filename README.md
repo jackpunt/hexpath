@@ -30,6 +30,8 @@ play-Tile: per placement rules;
 
 get-Rule: top of deck [maybe one face-up? pay its cost; maybe one face-up per player?]
 - pay 1 to get top of deck
+- never exceed hand-limit [3]; if at hand-limit then reduce hand *before* drawing.
+- reduce hand: play-Rule or expose-Bonus or discard
 
 play-Rule: [number of rules in play increases to number of players, does not decrease]
 - pay cost to invert existing rule
