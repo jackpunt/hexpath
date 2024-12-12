@@ -1,9 +1,9 @@
 <div class="content" role="main" style=background-color:rgb(251,245,255)>
-  <stage-comp id="stageComp" [width]=1600 [height]=980> StageComponent here</stage-comp>
+  <stage-comp [width]=1600 [height]=980> StageComponent here</stage-comp>
   <div style="position: absolute; top: 10px; left: 15px; z-index: 9999">
     <a href="https://docs.google.com/document/d/1Am5Q30z0M__ZcIIbcLeaeW91F9lXQK1aFMDNSkji-nI/view" target="_blank" rel="noopener">{{ linkName }}</a>
     <br/>
-    <span>{{ timestamp }}</span>
+    <span>{{ timestamp }} Game: <span id="group_name">----</span></span>
     <br/>
     <button type="submit" id="fsOpenFileButton" onclick="showOpenFilePicker()">OpenFile</button>
     <br/>
@@ -11,13 +11,13 @@
     <span>
     <button type="submit" id="fsReadFileButton" onclick="showOpenFilePicker()">ReadFile</button>
     &nbsp;
-    <input type="text" id="readFileName" name="filename" title="log_date_time@turn" size="22" />
+    <input type="text" id="readFileName" name="filename" title="log_date_time@turn" size="20" />
     </span>
     <br/>
     <span>
     <button type="submit" id="parseStateButton" onclick="parseState()">SetState</button>
     &nbsp;
-    <input type="text" id="parseStateText" name="parseState" title="paste {ngods: , turn: , ...}" size="22" />
+    <input type="text" id="parseStateText" name="parseState" title="paste {ngods: , turn: , ...}" size="20" />
     </span>
     <br/>
     <!-- P&P templte: single-sided = 2550 x 3300 [landscape, 7x5 EWtopo] or double-sided = 5100 x 3300 [portrait] -->
@@ -27,7 +27,6 @@
     <a id="viewPage"><button type="button">ViewPage</button></a>
     <br/>
     <a id="download" download="image.png"><button type="button">Download</button></a>
-    <div class="f4">Game: <span id="group_name">----</span></div>
     <br/>
   </div>
   <div id = 'canvasDiv'

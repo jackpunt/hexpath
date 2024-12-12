@@ -1,8 +1,8 @@
 import { Component, Input, OnInit } from '@angular/core';
-import { ActivatedRoute, Params } from '@angular/router';
-//import { } from 'wicg-file-system-access';
 import { Title } from '@angular/platform-browser';
+import { ActivatedRoute, Params } from '@angular/router';
 import { stime } from '@thegraid/common-lib';
+import { } from 'wicg-file-system-access';
 import { AppComponent } from '../app.component';
 import { GameSetup } from '../game-setup';
 
@@ -15,7 +15,7 @@ export class StageComponent implements OnInit {
 
   static idnum: number = 0;
   getId(): string {
-    return "T" + (StageComponent.idnum = StageComponent.idnum + 1);
+    return `T${(StageComponent.idnum = StageComponent.idnum + 1)}`;
   };
 
   /** the query string: ?a=...&b=...&c=... =>{a: ..., b: ..., c:...} */
@@ -28,7 +28,7 @@ export class StageComponent implements OnInit {
   height = 800.0;   // [pixels] size of "Viewport" of the canvas / Stage
 
   /** HTML make a \<canvas/> with this ID: */
-  mapCanvasId = "mapCanvas" + this.getId(); // argument to new Stage(this.canvasId)
+  mapCanvasId = `mapCanvas${this.getId()}`; // argument to new Stage(this.canvasId)
 
   constructor(private activatedRoute: ActivatedRoute, private titleService: Title, private app: AppComponent) { }
   ngOnInit() {
@@ -48,25 +48,21 @@ export class StageComponent implements OnInit {
   ngAfterViewInit2() {
     let href: string = document.location.href;
     console.log(stime(this, ".ngAfterViewInit---"), href, "qParams=", this.qParams)
-    // disable browser contextmenu
-    // console.log(stime(this, `.ngAfterViewInit--- preventDefault contextmenu`))
-    window.addEventListener('contextmenu', (evt: MouseEvent) => evt.preventDefault())
     const gs = new GameSetup(this.mapCanvasId, this.qParams);    // load images; new GamePlay(qParams);
     this.titleService.setTitle(`${this.app.title} ${gs.pageLabel}`)
-    if (href.endsWith("startup") || false) {
-      gs.startup(this.qParams);
+  }
+
+  // see: stream-writer.setButton
+  /** Set the HTML (fsOpenFileButton) button to do a wicg-file-system-access action */
+  static enableOpenFilePicker(method: 'showOpenFilePicker' | 'showSaveFilePicker' | 'showDirectoryPicker',
+    options: OpenFilePickerOptions & { multiple?: boolean } & SaveFilePickerOptions & DirectoryPickerOptions,
+    cb: (fileHandleAry: any) => void) {
+    const picker = window[method]       // showSaveFilePicker showDirectoryPicker
+    const fsOpenButton = document.getElementById("fsOpenFileButton")
+    if (fsOpenButton) fsOpenButton.onclick = async () => {
+      picker(options).then((value: any) => cb(value), (rej: any) => {
+        console.warn(`showOpenFilePicker failed: `, rej)
+      });
     }
   }
-  // see: stream-writer.setButton
-  // static enableOpenFilePicker(method: 'showOpenFilePicker' | 'showSaveFilePicker' | 'showDirectoryPicker',
-  //   options: OpenFilePickerOptions & { multiple?: boolean } & SaveFilePickerOptions & DirectoryPickerOptions,
-  //   cb: (fileHandleAry: any) => void) {
-  //   const picker = window[method]       // showSaveFilePicker showDirectoryPicker
-  //   const fsOpenButton = document.getElementById("fsOpenFileButton")
-  //   fsOpenButton.onclick = async () => {
-  //     picker(options).then((value: any) => cb(value), (rej: any) => {
-  //       console.warn(`showOpenFilePicker failed: `, rej)
-  //     });
-  //   }
-  // }
 }
