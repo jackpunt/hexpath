@@ -1,9 +1,8 @@
-import { permute } from "@thegraid/common-lib";
 import { Stage, type Container } from "@thegraid/easeljs-module";
-import { Hex2, Table, TP } from "@thegraid/hexlib";
+import { Hex2, Table, Tile, TP, type IHex2, type TileSource } from "@thegraid/hexlib";
 import type { GamePlay } from "./game-play";
 import type { Scenario } from "./game-setup";
-import { CardPanel } from "./path-card";
+import { CardPanel, PathCard } from "./path-card";
 import { PathHex2, type HexMap2 } from "./path-hex";
 import { PathTile } from "./path-tile";
 
@@ -27,17 +26,26 @@ export class PathTable extends Table {
     super.makePerPlayer();
   }
 
+  makeSourceAtRowCol<T extends Tile>(ms: (hex: Hex2) => TileSource<T>,
+    name = 'tileSource', row = 1, col = 1, dy = 0,
+  ) {
+    const hex = this.newHex2(row, col, name) as IHex2;
+    const source = ms(hex);
+    source.permuteAvailable();
+    source.counter.y += TP.hexRad * dy;
+    hex.distText.y = 0;
+    return source;
+  }
+
   override layoutTable2() {
     this.initialVis = true;
     super.layoutTable2();
-    const drawCol = 1.5;
-    const drawHex = this.newHex2(1, drawCol, 'drawHex') as Hex2; // map.HexC === AcqHex2
-    drawHex.distText.y = 0;
-    // drawHex.cont.visible = false;
     PathTile.makeAllTiles();      // populate PathTile.allTiles
-    permute(PathTile.allTiles);
-    const source = PathTile.makeSource(drawHex, PathTile.allTiles);
-    source.counter.y -= TP.hexRad / 2;
+    this.makeSourceAtRowCol(PathTile.makeSource, 'tileBag', 1, 2.3, -.6);
+
+    PathCard.makeAllCards();      // populate PathCard.cardByName
+    this.makeSourceAtRowCol(PathCard.makeSource, 'cardDeck', 1, 1, .3)
+
     this.addDoneButton();
     this.addCardPanel();
     return;
@@ -68,11 +76,12 @@ export class PathTable extends Table {
     return rv;
   }
 
+  cardPanel!: CardPanel;
   addCardPanel() {
     const np = 6, pindex = np; // in slot 1 (left-center)
     const [row, col, dir] = this.panelLoc(pindex, np);
     const high = 4.133, wide = 4.5;
-    const panel = new CardPanel(this, high, wide, row - high / 2, col - wide / 2)
+    const panel = this.cardPanel = new CardPanel(this, high, wide, row - high / 2, col - wide / 2)
     this.hexMap.mapCont.backCont.addChild(panel);
     // this.setToRowCol(panel, row - high / 2, col - wide / 2);
     panel.makeCardRack(this);
@@ -100,13 +109,14 @@ export class PathTable extends Table {
     return [[], [0], [0, 2], [0, 3, 2], [0, 3, 5, 2], [0, 3, 4, 5, 2], [0, 3, 4, 5, 2, 1]][np];
   }
 
+  /** identify dragTile so it can be rotated by keybinding */
   get dragTile(): PathTile | undefined {
     const dragging = this.isDragging;
     return (dragging instanceof PathTile) ? dragging : undefined;
   }
 
   override startGame(scenario: Scenario) {
-    super.startGame(scenario); // allTiles.makeDragable()
-    this.gamePlay.gameState.start();   // enable Table.GUI to drive game state.
+    super.startGame(scenario);         // allTiles.makeDragable(); setNextPlayer()
+    this.gamePlay.gameState.start();   // gamePlay.phase(startPhase); enable GUI to drive game
   }
 }

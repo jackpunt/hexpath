@@ -175,14 +175,14 @@ export class AfHex extends NamedContainer {
     // pick a random rotation of each factor:
     // expect 16 x 16 x 4 = 1024 generated.
     for (let ats of atsPerm) {
-      let atsr = ats;// rotateAry(ats, Math.round(Random.random() * ats.length))
+      let atsr = ats;// rotateAry(ats, Random.random(ats.length))
       // rotated when placed on Hex2
       let atss = atsr.join('');
       for (let afc of afcPerm) {
-        let afcr = rotateAry(afc, Math.round(Random.random() * afcPerm.length))
+        let afcr = rotateAry(afc, Random.random(afcPerm.length))
         let afcs = afcr.join('')
         for (let aff of affPerm) {
-          let affr = rotateAry(aff, Math.round(Random.random() * affPerm.length))
+          let affr = rotateAry(aff, Random.random(affPerm.length))
           let affs = affr.join('')
           let afhex = new AfHex(atsr, afcr, affr, `${atss}:${afcs}:${affs}`);
           afhex.Aname = `${atss}:${afcs}:${affs}`;
@@ -235,7 +235,7 @@ export class AfHex extends NamedContainer {
 
 
   /** select from allAfHex and apply a [random] rotation */
-  static getAfHex(affn = Math.floor(Math.random() * AfHex.allAfHex.length), rot = Math.floor(Math.random() * 6)) {
+  static getAfHex(affn = Random.random(AfHex.allAfHex.length), rot = Random.random(6)) {
     affn = affn % AfHex.allAfHex.length;   // safety hack
     const afhex2 = AfHex.allAfHex[affn].clone();
     afhex2.rotate(rot);

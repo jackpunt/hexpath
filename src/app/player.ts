@@ -1,6 +1,7 @@
 import { stime } from "@thegraid/common-lib";
 import { Hex2, newPlanner, NumCounterBox, Player as PlayerLib } from "@thegraid/hexlib";
 import { GamePlay } from "./game-play";
+import type { PathCard } from "./path-card";
 import { type PathTable as Table } from "./path-table";
 import { PathTile } from "./path-tile";
 import { TP } from "./table-params";
@@ -87,4 +88,8 @@ export class Player extends PlayerLib {
     return !!tile;
   }
 
+  /** for ScenarioParser.saveState() */ // TODO: code cards with index, or string->card
+  get hand() {
+    return [] as PathCard[]; // TODO: the PathCard[] being held by this Player
+  }
 }

@@ -1,3 +1,4 @@
+import { PaintableShape } from "@thegraid/easeljs-lib";
 import { TP as TPLib, playerColorRecord } from "@thegraid/hexlib";
 export { PlayerColor, PlayerColorRecord, otherColor, playerColor0, playerColor1, playerColorRecord, playerColorRecordF, playerColors } from "@thegraid/hexlib";
 
@@ -10,6 +11,7 @@ export class TP extends TPLib {
     TP.maxPlayers = 3;
     TP.numPlayers = 2;
     TP.cacheTiles = 2.5;
+    PaintableShape.defaultRadius = TP.hexRad;
   }
   static override setParams(qParams?: Params, force?: boolean, target?: Params) {
     const TP0 = TP, TPlib = TPLib; // inspectable in debugger

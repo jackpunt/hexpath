@@ -1,4 +1,3 @@
-import { Params } from '@angular/router';
 import { GameSetup as GameSetupLib, MapCont, Scenario as Scenario0, Table, TP, type Hex1 } from '@thegraid/hexlib';
 import { GamePlay } from './game-play';
 import { PathHex2 as Hex2, HexMap2 } from './path-hex';
@@ -14,9 +13,11 @@ export interface Scenario extends Scenario0 {
 /** initialize & reset & startup the application/game. */
 export class GameSetup extends GameSetupLib {
 
-  override initialize(canvasId: string, qParams: Params = {}): void {
+  // allow qParams as opt arg:
+  override initialize(canvasId: string, qParams = this.qParams): void {
+    window.addEventListener('contextmenu', (evt: MouseEvent) => evt.preventDefault())
     // useEwTopo, size 7.
-    let { host, port, file, nH } = qParams;
+    const { host, port, file, nH } = qParams;
     TP.useEwTopo = true;
     TP.nHexes = nH || 7;
     TP.ghost = host || TP.ghost
