@@ -1,6 +1,6 @@
 import { C } from "@thegraid/common-lib";
 import { CircleShape, PaintableShape } from "@thegraid/easeljs-lib";
-import { HexShape, MapTile, Meeple, Player, TileSource, type Hex2 } from "@thegraid/hexlib";
+import { HexShape, MapTile, Meeple, Player, TileSource, type DragContext, type Hex1, type Hex2, type IHex2 } from "@thegraid/hexlib";
 import { AfHex } from "./af-hex";
 
 
@@ -78,6 +78,20 @@ export class PathTile extends MapTile {
     this.updateCache();
     this.stage.update();
     return;
+  }
+
+  // TODO: consider RuleCards & rotation.
+  override isLegalTarget(toHex: Hex1, ctx?: DragContext): boolean {
+    if (!(toHex as IHex2).isOnMap) return false; // until we have a discard bag
+    if (!!toHex.tile) return false;
+    if ((this.hex as IHex2)?.isOnMap && !ctx?.lastShift) return false; // re-place tile
+    return true;
+  }
+
+  override dropFunc(targetHex: IHex2, ctx: DragContext): void {
+    if (targetHex.tile && targetHex !== this.source?.hex) targetHex.tile.sendHome();
+    super.dropFunc(targetHex, ctx);
+    if (!this.source?.sourceHexUnit) this.source?.nextUnit()
   }
 
   // Not actually useful/necessary to recache AfHex

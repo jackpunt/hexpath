@@ -5,7 +5,7 @@ import type { PathMeep, PathTile } from "./path-tile";
 // Hex1 has get/set tile/meep -> _tile/_meep
 // Hex2Mixin.Hex2Impl has get/set -> setUnit(unit, isMeep)
 export class PathHex extends Hex1Lib {
-  pathLength = 5;
+
   // maybe unnecessary to override, if we never use PathHex (as Hex1)
   override get tile() { return super.tile as PathTile; }
   override set tile(tile: PathTile | undefined) { super.tile = tile; } // setUnit(tile, false)

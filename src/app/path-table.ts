@@ -1,9 +1,9 @@
 import { Stage, type Container } from "@thegraid/easeljs-module";
-import { Hex2, Table, Tile, TP, type IHex2, type TileSource } from "@thegraid/hexlib";
+import { Hex2, Table, Tile, TileSource, TP, type IHex2 } from "@thegraid/hexlib";
 import type { GamePlay } from "./game-play";
 import type { Scenario } from "./game-setup";
 import { CardPanel, PathCard } from "./path-card";
-import { PathHex2, type HexMap2 } from "./path-hex";
+import { type HexMap2 } from "./path-hex";
 import { PathTile } from "./path-tile";
 
 export class PathTable extends Table {
@@ -28,8 +28,9 @@ export class PathTable extends Table {
 
   makeSourceAtRowCol<T extends Tile>(ms: (hex: Hex2) => TileSource<T>,
     name = 'tileSource', row = 1, col = 1, dy = 0,
+    hexC = this.hexC,
   ) {
-    const hex = this.newHex2(row, col, name) as IHex2;
+    const hex = this.newHex2(row, col, name, hexC) as IHex2;
     const source = ms(hex);
     source.permuteAvailable();
     source.counter.y += TP.hexRad * dy;
@@ -43,30 +44,33 @@ export class PathTable extends Table {
     PathTile.makeAllTiles();      // populate PathTile.allTiles
     this.makeSourceAtRowCol(PathTile.makeSource, 'tileBag', 1, 2.3, -.6);
 
-    PathCard.makeAllCards();      // populate PathCard.cardByName
-    this.makeSourceAtRowCol(PathCard.makeSource, 'cardDeck', 1, 1, .3)
+    PathCard.makeAllCards(this);      // populate PathCard.cardByName
+  // TODO: reshuffle discard into source when draw from empty source
 
     this.addDoneButton();
     this.addCardPanel();
     return;
   }
+
+  // TODO: promote to hexlib:
   /**
    *
    * @param panel offset new Hexes to appear above given Container
    * @param row0 [.73] offset in y direction
    * @param colN number of Hex to create
-   * @returns Hex2[] with each hex.cont.xy offset to appear over panel
+   * @param hexC Constructor<IHex2>
+   * @returns hexC[] with each hex.cont.xy offset to appear over panel
    */
   hexesOnPanel(panel: Container, row0 = .75, colN = 4, hexC = this.hexC) {
-    const rv = [] as PathHex2[], map = this.hexMap;
+    const rv = [] as IHex2[], map = this.hexMap;
     const { x: x0, y: y0 } = map.xyFromMap(panel, 0, 0); // offset from hexCont to panel
     const { width: panelw } = panel.getBounds()
-    const { x: xn, dydr } = PathHex2.xywh(undefined, undefined, 0, colN - 1); // x of last cell
+    const { x: xn, dydr } = Hex2.xywh(undefined, undefined, 0, colN - 1); // x of last cell
     const dx = (panelw - xn) / 2, dy = row0 * dydr; // allocate any extra space (wide-xn) to either side
     for (let col = 0; col < colN; col++) {
       // not using newHex2() b/c that inserts the half-row offset
-      const hex = new hexC(map, 0, col, `C${col}`) as PathHex2 // in map.mapCont.hexCont
-      rv.push(hex as PathHex2 );
+      const hex = new hexC(map, 0, col, `C${col}`) // in map.mapCont.hexCont
+      rv.push(hex as IHex2 );
       hex.cont.x += (dx - x0);
       hex.cont.y += (dy - y0);
       hex.cont.visible = false;

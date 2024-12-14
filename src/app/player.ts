@@ -1,7 +1,7 @@
 import { stime } from "@thegraid/common-lib";
 import { Hex2, newPlanner, NumCounterBox, Player as PlayerLib } from "@thegraid/hexlib";
 import { GamePlay } from "./game-play";
-import type { PathCard } from "./path-card";
+import { CardPanel } from "./path-card";
 import { type PathTable as Table } from "./path-table";
 import { PathTile } from "./path-tile";
 import { TP } from "./table-params";
@@ -60,23 +60,31 @@ export class Player extends PlayerLib {
   // Test/demo EditNumber
   override makePlayerBits(): void {
     super.makePlayerBits()
-    this.makeTileRack(this.gamePlay.table);
+    this.makeTileRack(this.gamePlay.table, .75, 3);
+    this.makeCardRack(this.gamePlay.table, 2.5, 3)
     // TODO:
     // make TileSource for each plane size
     // make places for acquired cards (hand & in-play policies/events)
     // display current coins.
     // Pro-tem hack for Coins counter/display:
     const k = TP.hexRad / 2;
-    const cc = this.coinCounter = new NumCounterBox('coins', TP.initialCoins);
+    const cc = this.coinCounter = new NumCounterBox('coins', TP.initialCoins, undefined, TP.hexRad / 2);
     this.panel.addChild(cc); cc.x = this.panel.metrics.wide - k; cc.y = k
   }
 
   readonly tileRack: Hex2[] = [];
-  makeTileRack(table: Table, n = 4) {
-    const rack = table.hexesOnPanel(this.panel, .75, 4);
+  makeTileRack(table: Table, row = 0, ncols = 4) {
+    const rack = table.hexesOnPanel(this.panel, row, ncols);
     rack.forEach((hex, n) => hex.Aname = `${this.index}R${n}`)
     this.tileRack.splice(0, this.tileRack.length, ...rack); // replace all elements
   }
+
+  readonly cardRack: Hex2[] = [];
+  makeCardRack(table: Table, row = 0, ncols = 4) {
+    new CardPanel(table, 0, 0).fillCardRack0(table, this.panel, this.cardRack, row, ncols)
+  }
+  /** for ScenarioParser.saveState() */ // TODO: code cards with index, or string->card
+  get hand() { return this.cardRack }
 
   /** placeTile on Player's panel, in empty hex. */
   drawTile() {
@@ -86,10 +94,5 @@ export class Player extends PlayerLib {
     tile?.placeTile(rack);
     // console.log(stime(this, `.newTile: ${this.Aname}`), this.acqTiles.map(t => t?.Aname), this.acqTiles)
     return !!tile;
-  }
-
-  /** for ScenarioParser.saveState() */ // TODO: code cards with index, or string->card
-  get hand() {
-    return [] as PathCard[]; // TODO: the PathCard[] being held by this Player
   }
 }

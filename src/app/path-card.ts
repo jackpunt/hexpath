@@ -1,8 +1,9 @@
 import { C } from "@thegraid/common-lib";
 import { CenterText, NamedContainer, RectShape, RectWithDisp, type DragInfo, type Paintable } from "@thegraid/easeljs-lib";
-import type { DisplayObject } from "@thegraid/easeljs-module";
-import { H, Tile, TileSource, type Hex2 as Hex2Lib, type HexDir } from "@thegraid/hexlib";
-import { PathHex2 as Hex2 } from "./path-hex";
+import type { Container, DisplayObject } from "@thegraid/easeljs-module";
+import { H, Tile, TileSource, type DragContext, type Hex1, type HexDir, type IHex2 } from "@thegraid/hexlib";
+import { type GamePlay } from "./game-play";
+import { PathHex2 as Hex2, type HexMap2 } from "./path-hex";
 import { type PathTable as Table } from "./path-table";
 import type { PathTile } from "./path-tile";
 import { TP } from "./table-params";
@@ -13,8 +14,8 @@ import { TP } from "./table-params";
 type Vfunc = (tile: PathTile, hex: Hex2) => number;
 /** @return value of edge in placement [-1 if proscribed]  */
 type Efunc = (tile: PathTile, hex: Hex2, dir: HexDir) => number;
-/** t:ident, d:descript, c: cost, vf: value, ef: edge */
-type RuleSpec = {t: string, d?: string, c: number, vf?: Vfunc, ef?: Efunc}
+/** id:ident, d:descript, c: cost, vf: value, ef: edge */
+type RuleSpec = {id: string, d?: string, c: number, vf?: Vfunc, ef?: Efunc}
 const Hdirs = TP.useEwTopo ? H.ewDirs : H.nsDirs;
 /**
  * A rule/constraint: determine isLegal & value of a placement (tile, rotation, location)
@@ -49,7 +50,7 @@ class PathRule {
   }
 
   constructor(ps: RuleSpec) {
-    this.text = ps.d ?? ps.t;
+    this.text = ps.d ?? ps.id;
     if (ps.vf) this.valuef = ps.vf;
     if (ps.ef) this.edgef = ps.ef;
   }
@@ -86,29 +87,33 @@ class PRgen {
 
   ruleSpecs: RuleSpec[] = [
     // each edge matches 2 (of the 3) factors:
-    { t: 'matches2', c: 1, vf: (t, h) => this.vfunc_matches_n(2, t, h), d: 'all joins 2+ matches' },
+    { id: 'matches2', c: 1, vf: (t, h) => this.vfunc_matches_n(2, t, h), d: 'all joins 2+ matches' },
     // at least 5 total matches:
-    { t: 'match5', c: 1, ef: (t, h, d) => this.efunc_match_sum(5, t, h, d), d: '5+ total matches' },
+    { id: 'match5', c: 1, ef: (t, h, d) => this.efunc_match_sum(5, t, h, d), d: '5+ total matches' },
 
-    {t: 'rule1', c: 1, vf: (tile: PathTile, hex: Hex2) => -1},
-    {t: 'rule2', c: 2, vf: (tile: PathTile, hex: Hex2) => -1},
-    {t: 'rule3', c: 3, vf: (tile: PathTile, hex: Hex2) => -1},
+    {id: 'rule1', c: 1, vf: (tile: PathTile, hex: Hex2) => -1},
+    {id: 'rule2', c: 2, vf: (tile: PathTile, hex: Hex2) => -1},
+    {id: 'rule3', c: 3, vf: (tile: PathTile, hex: Hex2) => -1},
 
   ]
 }
 
 export class PathCard extends Tile {
-  rule!: PathRule
   declare baseShape: RectWithDisp;
+  declare gamePlay: GamePlay;
+  rule!: PathRule
   descr: CenterText
 
   // Tile { baseShape: RectShape , nameText, descr }
   constructor(rs: RuleSpec) {
-    super(rs.t)           // Note: may need to tweak cache/reCache algo
+    let id = rs.id, n = 1;
+    while (PathCard.cardByName.has(id)) { id = `${rs.id}#${++n}` }
+    super(id)           // Note: may need to tweak cache/reCache algo
     this.rule = new PathRule(rs)
-    this.descr = this.addDescr(rs.d ?? rs.t)
+    this.descr = this.addDescr(rs.d ?? rs.id)
     this.addChild(this.descr);
-    PathCard.cardByName.set(rs.t, this);
+    PathCard.cardByName.set(id, this);
+    this.homeHex = PathCard.discard.hex;
   }
 
   addDescr(text: string) {
@@ -126,30 +131,99 @@ export class PathCard extends Tile {
     return disp;
   }
   override reCache(scale?: number): void {
-    super.reCache(0);
+    super.reCache(0); // no cache?
+  }
+  override markLegal(table: Table, setLegal = (hex: Hex2) => { hex.isLegal = false; }, ctx?: DragContext): void {
+    CardHex.allCardHex.forEach(setLegal);
+  }
+  override isLegalTarget(toHex: Hex2, ctx?: DragContext): boolean {
+    return true; // (toHex instanceof CardHex)
+  }
+  override dropFunc(targetHex: IHex2, ctx: DragContext): void {
+    if (targetHex.tile && targetHex !== this.source?.hex) targetHex.tile.sendHome();
+    super.dropFunc(targetHex, ctx);
+    if (!this.source?.sourceHexUnit) this.source?.nextUnit()
+  }
+
+  override sendHome(): void {
+    // super.sendHome(); // hexlib@1.3.1 includes source.availUnit()!!
+    this.resetTile();
+    this.moveTo(this.homeHex) // override for AuctionTile.tileBag & UnitSource<Meeple>
+    if (!this.homeHex) this.parent?.removeChild(this); // Hex1.setUnit() --> addChild()
   }
 
   // static allCards: PathCard[] = [];
   static cardByName: Map<string,PathCard> = new Map();
-  static makeAllCards(...prgs: PRgen[]) {
+  static makeAllCards(table: Table, ...prgs: PRgen[]) {
+    CardHex.allCardHex.length = 0; // clear before we make all the new ones.
+
+    table.makeSourceAtRowCol(PathCard.makeSource, 'discards', 3.5, 1, .3, CardHex)
+    PathCard.discard = PathCard.source;
+    table.makeSourceAtRowCol(PathCard.makeSource, 'cardDeck', 1.0, 1, .3, CardHex)
+
     if (prgs.length === 0) prgs = [new PRgen()];
     PathCard.cardByName.clear();
     prgs.forEach(prg => {
-      const cards = prg.ruleSpecs.map(ps => new PathCard(ps))
+      prg.ruleSpecs.map(ps => new PathCard(ps))
+      prg.ruleSpecs.map(ps => new PathCard(ps))
     })
+    PathCard.cardByName.forEach(card => PathCard.discard.availUnit(card));
+    this.reshuffle()
   }
 
+  static reshuffle() {
+    const disc = PathCard.discard, src = PathCard.source;
+    const tt = disc.hex.tile;
+    const discarded = disc.filterUnits() // extract all available units
+    disc.deleteAll();
+    discarded.forEach(card => src.availUnit(card));
+    // assert: src.sourceHexUnit === undefined [else we would not be shuffling...]
+    if (src.sourceHexUnit) src.availUnit(src.sourceHexUnit);
+    src.permuteAvailable()
+    src.nextUnit();  // TODO: we don't actually want to face-up.
+  }
+
+  /** sendHome (or drop card) on discard to accumulate for later reshuffle. */
+  static discard: TileSource<PathCard>;
   static source: TileSource<PathCard>;
 
-  static makeSource(hex: Hex2Lib, cards = PathCard.cardByName) {
-    const source = PathCard.makeSource0(TileSource<PathCard>, PathCard, hex);
-    cards.forEach(unit => source.availUnit(unit));
-    source.nextUnit();  // unit.moveTo(source.hex)
-    return source;
+  static makeSource(hex: IHex2) {
+    PathCard.makeSource0(TileSource<PathCard>, PathCard, hex);
+    PathCard.source.nextUnit();  // unit.moveTo(source.hex)
+    return PathCard.source;
+  }
+}
+
+/** marker for pseudo Hex placements of CardPanel */
+export class CardHex extends Hex2 {
+  /** record all CardHex for PathCard.markLegal() */
+  static allCardHex = [] as CardHex[];
+  constructor(map: HexMap2, row = 0, col = 0, Aname = '') {
+    super(map, row, col, Aname)
+    CardHex.allCardHex.push(this);
+  }
+  // when sendHome() hits top of discard:
+  override unitCollision(hexUnit: PathCard, unit: PathCard, isMeep?: boolean): void {
+    const disc = PathCard.discard;
+    if (this === disc.hex) {   // sendHome preempts to do this path:
+      disc.availUnit(hexUnit); // stack previous card; hexUnit.visible = false;
+      disc.availUnit(unit);    // push new card
+      disc.nextUnit(unit);     // pop into sourceHexUnit
+    } else {
+      hexUnit.moveTo(disc.hex);// discard previous card
+    }
   }
 }
 
 export class CardPanel extends NamedContainer {
+  /**
+   *
+   * @param table
+   * @param high rows high
+   * @param wide columns wide
+   * @param row place panel at [row, col]
+   * @param col
+   */
   constructor(public table: Table, public high: number, public wide: number, row = 0, col = 0) {
     super(`CardPanel`)
     const { dxdc, dydr } = table.hexMap.xywh
@@ -160,13 +234,22 @@ export class CardPanel extends NamedContainer {
     this.table.setToRowCol(this, row, col);
   }
 
+  /** fill rack0 with ncols of CardHex */
+  fillCardRack0(table: Table, panel: Container, rack0: IHex2[], row = 0, ncols = 4) {
+    const rack = table.hexesOnPanel(panel, row, ncols, CardHex);
+    rack.forEach((hex, n) => { hex.Aname = `C${n}`})
+    rack0.splice(0, rack0.length, ...rack);
+  }
+
   readonly cardRack: Hex2[] = [];
-  makeCardRack(table: Table, n = 4) {
-    const rack = table.hexesOnPanel(this, 1, n);
-    rack.forEach((hex, n) => hex.Aname = `C${n}`)
-    this.cardRack.splice(0, this.cardRack.length, ...rack);
+  makeCardRack(table: Table, ncols = 3) {
+    this.fillCardRack0(table, this, this.cardRack, 1, ncols)
     table.dragger.makeDragable(this, this, undefined, this.dropFunc)
     this.showCards()
+  }
+
+  isCardHex(hex: Hex2) {
+    return (hex instanceof CardHex)
   }
 
   /**
@@ -178,6 +261,8 @@ export class CardPanel extends NamedContainer {
     const orig = this.table.scaleCont.localToLocal(ctx.objx, ctx.objy, dobj.parent)
     const dx = dobj.x - orig.x, dy = dobj.y - orig.y;
     this.cardRack.forEach(hex => {
+      hex.legalMark.x += dx;
+      hex.legalMark.y += dy;
       hex.x += dx;
       hex.y += dy;
       hex.tile?.moveTo(hex); // trigger repaint/update?
@@ -187,8 +272,9 @@ export class CardPanel extends NamedContainer {
   showCards() {
     const source = PathCard.source
     this.cardRack.forEach((hex, n) => {
+      if (n == 0) return;
       const card = source.takeUnit()
-      card.placeTile(hex);
+      card?.placeTile(hex);
     })
   }
 

@@ -15,6 +15,7 @@ export class GamePlay extends GamePlayLib {
   override readonly gameState: GameState = new GameState(this);
   declare gameSetup: GameSetup;
   declare hexMap: HexMap<PathHex>
+  declare table: PathTable;
 
   declare curPlayer: Player;
   override startTurn() {
@@ -28,7 +29,6 @@ export class GamePlay extends GamePlayLib {
     plyr.gamePlay.hexMap.update(); // TODO: this.playerDone(ev)
   }
 
-  declare table: PathTable;
   override bindKeys(): void {
     super.bindKeys();
     const table = this.table;
