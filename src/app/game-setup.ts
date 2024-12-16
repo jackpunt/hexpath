@@ -4,6 +4,7 @@ import { PathHex2 as Hex2, HexMap2 } from './path-hex';
 import { PathTable } from './path-table';
 import { PathTile } from './path-tile';
 import { Player } from './player';
+import { stime } from '@thegraid/common-lib';
 
 // type Params = {[key: string]: any;}; // until hexlib supplies
 export interface Scenario extends Scenario0 {
@@ -16,6 +17,7 @@ export class GameSetup extends GameSetupLib {
   // allow qParams as opt arg:
   override initialize(canvasId: string, qParams = this.qParams): void {
     window.addEventListener('contextmenu', (evt: MouseEvent) => evt.preventDefault())
+    ;(Date as any)['stime'] = stime;  // entry point to find Date.stime
     // useEwTopo, size 7.
     const { host, port, file, nH } = qParams;
     TP.useEwTopo = true;

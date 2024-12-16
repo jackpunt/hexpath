@@ -1,7 +1,7 @@
-import { C } from "@thegraid/common-lib";
+import { C, S, stime } from "@thegraid/common-lib";
 import { CenterText, NamedContainer, RectShape, RectWithDisp, type DragInfo, type Paintable } from "@thegraid/easeljs-lib";
-import type { Container, DisplayObject } from "@thegraid/easeljs-module";
-import { H, Tile, TileSource, type DragContext, type Hex1, type HexDir, type IHex2 } from "@thegraid/hexlib";
+import type { Container, DisplayObject, MouseEvent } from "@thegraid/easeljs-module";
+import { H, Tile, TileSource, type DragContext, type HexDir, type IHex2 } from "@thegraid/hexlib";
 import { type GamePlay } from "./game-play";
 import { PathHex2 as Hex2, type HexMap2 } from "./path-hex";
 import { type PathTable as Table } from "./path-table";
@@ -113,7 +113,7 @@ export class PathCard extends Tile {
     this.descr = this.addDescr(rs.d ?? rs.id)
     this.addChild(this.descr);
     PathCard.cardByName.set(id, this);
-    this.homeHex = PathCard.discard.hex;
+    this.homeHex = PathCard.discard.hex; // unitCollision will stack if necessary.
   }
 
   addDescr(text: string) {
@@ -128,6 +128,7 @@ export class PathCard extends Tile {
   override makeShape(): Paintable {
     const w = TP.hexRad * H.sqrt3 * 59 / 60 - 5, h = w * 1.5;
     const disp = new RectShape({ x: -w / 2, y: -h / 2, w, h })
+    disp.paint('lavender')
     return disp;
   }
   override reCache(scale?: number): void {
@@ -137,28 +138,30 @@ export class PathCard extends Tile {
     CardHex.allCardHex.forEach(setLegal);
   }
   override isLegalTarget(toHex: Hex2, ctx?: DragContext): boolean {
+    if (toHex === PathCard.source.hex) return false;
     return true; // (toHex instanceof CardHex)
   }
+  override dragStart(ctx: DragContext): void {
+    super.dragStart(ctx);
+    if (this.fromHex === PathCard.source.hex)
+      this.fromHex = PathCard.discard.hex as Hex2;
+  }
+
   override dropFunc(targetHex: IHex2, ctx: DragContext): void {
-    if (targetHex.tile && targetHex !== this.source?.hex) targetHex.tile.sendHome();
-    super.dropFunc(targetHex, ctx);
-    if (!this.source?.sourceHexUnit) this.source?.nextUnit()
+    if (targetHex?.tile) targetHex.tile.sendHome();
+    super.dropFunc(targetHex ?? PathCard.discard.hex, ctx);
+    if (!PathCard.discard.sourceHexUnit) PathCard.discard.nextUnit(); // reveal discard
+    PathCard.discard.updateCounter();
+    PathCard.source.updateCounter();
   }
 
-  override sendHome(): void {
-    // super.sendHome(); // hexlib@1.3.1 includes source.availUnit()!!
-    this.resetTile();
-    this.moveTo(this.homeHex) // override for AuctionTile.tileBag & UnitSource<Meeple>
-    if (!this.homeHex) this.parent?.removeChild(this); // Hex1.setUnit() --> addChild()
-  }
-
-  // static allCards: PathCard[] = [];
   static cardByName: Map<string,PathCard> = new Map();
   static makeAllCards(table: Table, ...prgs: PRgen[]) {
     CardHex.allCardHex.length = 0; // clear before we make all the new ones.
 
     table.makeSourceAtRowCol(PathCard.makeSource, 'discards', 3.5, 1, .3, CardHex)
     PathCard.discard = PathCard.source;
+    ;(PathCard.discard as any as NamedContainer).Aname = 'PathCardDiscard';
     table.makeSourceAtRowCol(PathCard.makeSource, 'cardDeck', 1.0, 1, .3, CardHex)
 
     if (prgs.length === 0) prgs = [new PRgen()];
@@ -169,18 +172,20 @@ export class PathCard extends Tile {
     })
     PathCard.cardByName.forEach(card => PathCard.discard.availUnit(card));
     this.reshuffle()
+
+    const cardback = new CardBack(table); // it a Button, mostly.
+    cardback.moveTo(PathCard.source.hex); // set position above source.hex
+    cardback.moveTo(undefined);
+    cardback.on(S.click, (evt) => cardback.clicked(evt), cardback )
   }
 
   static reshuffle() {
+    // assert: src.sourceHexUnit === undefined [else we would not be shuffling...]
     const disc = PathCard.discard, src = PathCard.source;
-    const tt = disc.hex.tile;
     const discarded = disc.filterUnits() // extract all available units
     disc.deleteAll();
     discarded.forEach(card => src.availUnit(card));
-    // assert: src.sourceHexUnit === undefined [else we would not be shuffling...]
-    if (src.sourceHexUnit) src.availUnit(src.sourceHexUnit);
     src.permuteAvailable()
-    src.nextUnit();  // TODO: we don't actually want to face-up.
   }
 
   /** sendHome (or drop card) on discard to accumulate for later reshuffle. */
@@ -188,9 +193,43 @@ export class PathCard extends Tile {
   static source: TileSource<PathCard>;
 
   static makeSource(hex: IHex2) {
-    PathCard.makeSource0(TileSource<PathCard>, PathCard, hex);
-    PathCard.source.nextUnit();  // unit.moveTo(source.hex)
-    return PathCard.source;
+    const src = PathCard.makeSource0(TileSource<PathCard>, PathCard, hex);
+    ;(src as any as NamedContainer).Aname = `${src.hex.Aname}Source`;
+    return src;
+  }
+}
+
+/** special PathCard with no rule, never gets picked/placed,
+ * just sits on PathCard.source.hex; acts as a button
+ */
+export class CardBack extends PathCard {
+  constructor(public table: Table) {
+    super({ id: 'cardback', c: 0, d: 'click\nto\ndraw' })
+    this.baseShape.paint('lightgreen')
+  }
+  // makeDragable(), but do not let it actually drag:
+  override isDragable(ctx?: DragContext): boolean {
+    return false;
+  }
+  override dropFunc(targetHex: IHex2, ctx: DragContext): void {
+    // do not move or place this card...
+  }
+  clicked(evt?: MouseEvent) {
+    this.table.dragger.clickToDrag(this, false);
+    if (PathCard.source.numAvailable === 0) PathCard.reshuffle();
+    const card = PathCard.source.nextUnit();  // card.moveTo(srchex)
+    if (!card) return;
+    const pt = { x: evt?.localX ?? 0, y: evt?.localY ?? 0 }
+    this.dragNextCard(card, pt)
+    return;
+  }
+
+  dragNextCard(card: PathCard, dxy = { x: 10, y: 10 }) {
+    const dragger = this.table.dragger;
+    dragger.clickToDrag(card);
+    const dragData = dragger.getDragData(card);
+    console.log(stime(this, `.dragNextCard2: dragger.dragTarget(${card.Aname}); dragData=`), dragData)
+    this.table.dragTarget(card, dxy)
   }
 }
 
@@ -208,9 +247,9 @@ export class CardHex extends Hex2 {
     if (this === disc.hex) {   // sendHome preempts to do this path:
       disc.availUnit(hexUnit); // stack previous card; hexUnit.visible = false;
       disc.availUnit(unit);    // push new card
-      disc.nextUnit(unit);     // pop into sourceHexUnit
+      disc.nextUnit(unit);     // pop into sourceHexUnit [unit.source = PC.discard]
     } else {
-      hexUnit.moveTo(disc.hex);// discard previous card
+      hexUnit.moveTo(disc.hex);// discard previous card === hexUnit.sendHome()
     }
   }
 }
@@ -245,7 +284,6 @@ export class CardPanel extends NamedContainer {
   makeCardRack(table: Table, ncols = 3) {
     this.fillCardRack0(table, this, this.cardRack, 1, ncols)
     table.dragger.makeDragable(this, this, undefined, this.dropFunc)
-    this.showCards()
   }
 
   isCardHex(hex: Hex2) {
@@ -268,14 +306,4 @@ export class CardPanel extends NamedContainer {
       hex.tile?.moveTo(hex); // trigger repaint/update?
     })
   }
-
-  showCards() {
-    const source = PathCard.source
-    this.cardRack.forEach((hex, n) => {
-      if (n == 0) return;
-      const card = source.takeUnit()
-      card?.placeTile(hex);
-    })
-  }
-
 }
