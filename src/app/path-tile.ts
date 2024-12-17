@@ -1,7 +1,10 @@
 import { C } from "@thegraid/common-lib";
-import { CircleShape, PaintableShape } from "@thegraid/easeljs-lib";
-import { HexShape, MapTile, Meeple, Player, TileSource, type DragContext, type Hex1, type Hex2, type IHex2 } from "@thegraid/hexlib";
+import { CenterText, CircleShape, PaintableShape } from "@thegraid/easeljs-lib";
+import { type DragContext, Hex2 as Hex2Lib, HexShape, type IHex2, MapTile, Meeple, Player, TileSource } from "@thegraid/hexlib";
 import { AfHex } from "./af-hex";
+import type { PathRule } from "./path-card";
+import { type PathHex as Hex1, type PathHex2 as Hex2, } from "./path-hex";
+import type { PathTable } from "./path-table";
 
 
 // TODO: make a TileSource (bag of tile)
@@ -31,12 +34,16 @@ import { AfHex } from "./af-hex";
  */
 export class PathTile extends MapTile {
 
-  declare static allTiles: PathTile[];
+  static readonly allPathTiles: PathTile[] = [];
+  static override clearAllTiles(): void {
+    super.clearAllTiles();
+    PathTile.allPathTiles.length = 0;
+  }
 
   static source: TileSource<PathTile>;
 
   // make a source for the given PathTile[]
-  static makeSource(hex: Hex2, tiles = PathTile.allTiles) {
+  static makeSource(hex: Hex2Lib, tiles = PathTile.allPathTiles) {
     const source = PathTile.makeSource0(TileSource<PathTile>, PathTile, hex);
     tiles.forEach(unit => source.availUnit(unit));
     source.nextUnit();  // unit.moveTo(source.hex)
@@ -45,12 +52,15 @@ export class PathTile extends MapTile {
 
   readonly afhex;
   readonly plyrDisk = new CircleShape(C.white, PaintableShape.defaultRadius / 3, '');
+  readonly valueText = new CenterText('0', undefined, C.WHITE);
   constructor(Aname: string, player: Player | undefined, afhex: AfHex) {
     super(Aname, player);
     this.afhex = afhex;
     this.addChild(this.afhex);
     this.addChild(this.plyrDisk);
+    this.addChild(this.valueText);
     this.setPlayerAndPaint(player);
+    PathTile.allPathTiles.push(this);
   }
 
   override paint(colorn = C.transparent): void {
@@ -73,19 +83,66 @@ export class PathTile extends MapTile {
     })
   }
 
-  rotate(rot = 0) {
+  get rotated() { return this.afhex.rotated; }
+  set rotated(rot) {
+    this.afhex.rotated = rot;
+  }
+
+  rotate(rot = 1) {
     this.afhex.rotate(rot)
     this.updateCache();
     this.stage.update();
     return;
   }
 
+  /**
+   * Try all rotations of this tile at given Hex, return total value from rules.
+   * @param toHex
+   * @param rules rules that can/must be satisfied; each giving a value
+   * @return total_value[] for each rotation. (a value is -1 if toHex w/rotation is prohibited)
+   */
+  ruleValuesOnHex(toHex: Hex1, ...rules: PathRule[]) {
+    const rotated = this.rotated;
+    const valueAtRotation =  toHex.linkDirs.map((dir, n) => {
+      this.rotated = n;
+      // value for each rule (@ this rotation)
+      const values = rules.map(rule => rule.value(this, toHex)); // [rv(0), rv(1),rv(3)] for each rule
+      const fails = values.filter(v => v < 0).length > 0; // if any rule failed
+      const rv = fails ? -1 : values.filter(v => v >= 0).reduce((pv, cv) => pv + cv, 0);
+      return rv;
+    })
+    this.rotated = rotated;
+    return valueAtRotation;
+  }
+  maxRuleValue(toHex: Hex1, rules: PathRule[]) {
+    return Math.max(...this.ruleValuesOnHex(toHex, ...rules));
+  }
+
   // TODO: consider RuleCards & rotation.
   override isLegalTarget(toHex: Hex1, ctx?: DragContext): boolean {
+    const hex2 = toHex as Hex2;
     if (!(toHex as IHex2).isOnMap) return false; // until we have a discard bag
     if (!!toHex.tile) return false;
-    if ((this.hex as IHex2)?.isOnMap && !ctx?.lastShift) return false; // re-place tile
+    if ((this.hex as IHex2)?.isOnMap && ctx?.lastShift) return true; // re-place tile
+    const maxV = this.valueOnHex(hex2, ctx)
+    if (maxV < 0) return false;
+    hex2.legalMark.label.text = `${maxV}`;
     return true;
+  }
+  valueOnHex(toHex: Hex1, ctx?: DragContext) {
+    const { gameState } = ctx ?? {}, table = gameState?.table as PathTable | undefined;
+    const rules = table?.cardPanel.rules;
+    const maxV = rules ? this.maxRuleValue(toHex, rules) : 0;
+    return maxV;
+  }
+
+  override dragFunc(hex: IHex2 | undefined, ctx: DragContext): void {
+    const hex2 = hex as Hex2;
+    if (hex?.isOnMap) this.showValue(hex2);
+    super.dragFunc(hex, ctx);
+  }
+  showValue(hex: Hex2) {
+
   }
 
   override dropFunc(targetHex: IHex2, ctx: DragContext): void {
@@ -94,11 +151,6 @@ export class PathTile extends MapTile {
     if (!this.source?.sourceHexUnit) this.source?.nextUnit()
   }
 
-  // Not actually useful/necessary to recache AfHex
-  // override cache(x: number, y: number, width: number, height: number, scale?: number): void {
-  //   this.afhex?.reCache(scale);
-  //   super.cache(x, y, width, height, scale);
-  // }
 }
 export class PathMeep extends Meeple {
   loc = [1,2];

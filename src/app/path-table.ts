@@ -1,5 +1,5 @@
 import { Stage, type Container } from "@thegraid/easeljs-module";
-import { Hex2, Table, Tile, TileSource, TP, type IHex2 } from "@thegraid/hexlib";
+import { Hex2, Table, Tile, TileSource, TP, type DragContext, type IHex2 } from "@thegraid/hexlib";
 import type { GamePlay } from "./game-play";
 import type { Scenario } from "./game-setup";
 import { CardPanel, PathCard } from "./path-card";
@@ -122,5 +122,10 @@ export class PathTable extends Table {
   override startGame(scenario: Scenario) {
     super.startGame(scenario);         // allTiles.makeDragable(); setNextPlayer()
     this.gamePlay.gameState.start();   // gamePlay.phase(startPhase); enable GUI to drive game
+  }
+
+  override markLegalHexes(tile: Tile, ctx: DragContext): number {
+    ctx.gameState = this.gamePlay.gameState;
+    return super.markLegalHexes(tile, ctx);
   }
 }

@@ -1,4 +1,6 @@
-import { Hex1 as Hex1Lib, Hex2Mixin, HexMap } from "@thegraid/hexlib";
+import { C } from "@thegraid/common-lib";
+import { CenterText, CircleShape } from "@thegraid/easeljs-lib";
+import { Hex1 as Hex1Lib, Hex2Mixin, HexMap, LegalMark as LegalMarkLib } from "@thegraid/hexlib";
 import type { PathMeep, PathTile } from "./path-tile";
 
 
@@ -20,8 +22,21 @@ class PathHex2Lib extends Hex2Mixin(PathHex) {};
 export class PathHex2 extends PathHex2Lib {
   override tile: PathTile | undefined; // uses get/set from Hex2Mixin(PathHex)
   override meep: PathMeep | undefined;
+  override makeLegalMark(): LegalMark {
+    return new LegalMark();
+  }
+  declare legalMark: LegalMark;
 }
 
 export class HexMap2 extends HexMap<PathHex2> {
 
+}
+
+class LegalMark extends LegalMarkLib {
+  label = new CenterText('0');
+  override doGraphics(): void {
+    this.removeAllChildren();
+    this.addChild(new CircleShape(C.legalGreen, this.hex2.radius / 2, '')); // @(0,0)
+    this.addChild(this.label)
+  }
 }

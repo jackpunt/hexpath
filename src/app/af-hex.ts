@@ -112,14 +112,24 @@ export class AfHex extends NamedContainer {
     return new AfHex(this.aShapes, this.aColors, this.aFills, this.Aname);
   }
 
+  _rotated = 0; // [0..6)
+  /** cummulative sum of rotate() % 6 */
+  get rotated() { return this._rotated; }
+  set rotated(rot) {
+    const rotn = ((rot % 6) + 6) % 6; // in range: [0..6)
+    this.rotate((rotn - this.rotated) % 6); // (-6..6)
+  }
+
   /** increase rotation by rot;
-   * @param rot +1 --> 60 degrees
+   * @param rotn +1 --> +60 degrees CW
    */
-  rotate(rot: number) {
-    this.rotation += 60 * rot; // degrees, not radians
-    this.aColors = rotateAry(this.aColors, rot)
-    this.aShapes = rotateAry(this.aShapes, rot)
-    this.aFills = rotateAry(this.aFills, rot)
+  rotate(rot = 1) {
+    const rotn = ((rot % 6) + 6) % 6; // in range: [0..6)
+    this._rotated = (this._rotated + rotn) % 6;
+    this.rotation = 60 * this._rotated; // degrees, not radians
+    this.aColors = rotateAry(this.aColors, rotn)
+    this.aShapes = rotateAry(this.aShapes, rotn)
+    this.aFills = rotateAry(this.aFills, rotn)
   }
 
   /** return [shape, color, fill] of indicated edge */
@@ -150,8 +160,8 @@ export class AfHex extends NamedContainer {
     colors = ColorA,   // [AF.R, AF.G, AF.B]
     fills = FillA,     // [AF.F, AF.L]
   ) {
-    // make all Square, RGB, Filled
-    const [ns, nc, nf] = scf;
+    // number of Shapes, Colors, Fills to use: (expect: 1 or 2 or 3)
+    const [ns, nc, nf] = scf; // ASSERT: shapes.length >= ns, etc
     const nOfEach = (nt: number) => 6 / nt; // assert: (6 % nt === 0)
     const build = (nt: number, ...elts: any[]) => {
       const rv = new Array(6), ne = nOfEach(nt);
