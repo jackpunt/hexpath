@@ -1,10 +1,10 @@
 import { C } from "@thegraid/common-lib";
 import { CenterText, CircleShape, PaintableShape } from "@thegraid/easeljs-lib";
-import { type DragContext, H, Hex2 as Hex2Lib, HexShape, type IHex2, MapTile, Meeple, Player, type Tile, TileSource, TP } from "@thegraid/hexlib";
+import { type DragContext, H, Hex2 as Hex2Lib, HexShape, type IHex2, MapTile, Meeple, Player, TileSource, TP } from "@thegraid/hexlib";
 import { AfHex } from "./af-hex";
 import type { GameState } from "./game-state";
 import type { PathRule } from "./path-card";
-import { type PathHex as Hex1, type PathHex2 as Hex2, } from "./path-hex";
+import { type PathHex as Hex1, type PathHex2 as Hex2 } from "./path-hex";
 
 const Hdirs = TP.useEwTopo ? H.ewDirs : H.nsDirs;
 
@@ -53,13 +53,19 @@ export class PathTile extends MapTile {
 
   readonly afhex;
   readonly plyrDisk = new CircleShape(C.white, PaintableShape.defaultRadius / 3, '');
-  readonly valueText = new CenterText('0', undefined, C.WHITE);
+  readonly _valueText = new CenterText('0', undefined, C.WHITE);
+  get valueText() { return this._valueText.text }
+  set valueText(value: string) {
+    this._valueText.text = value;
+    this.reCache()
+  }
+
   constructor(Aname: string, player: Player | undefined, afhex: AfHex) {
     super(Aname, player);
     this.afhex = afhex;
     this.addChild(this.afhex);
     this.addChild(this.plyrDisk);
-    this.addChild(this.valueText);
+    this.addChild(this._valueText);
     this.setPlayerAndPaint(player);
     PathTile.allPathTiles.push(this);
   }
@@ -144,8 +150,7 @@ export class PathTile extends MapTile {
 
   rotateNext(rot = 0, hex = this.targetHex) {
     this.rotate(rot)
-    const value = hex.legalMark?.valuesAtRot[this.rotated];
-    this.showValue(`${value}`);
+    this.valueText = `${hex.legalMark?.valuesAtRot[this.rotated]}`; // if (value === '-1') drop --> fromHex
     this.stage?.update()
   }
 
@@ -170,18 +175,18 @@ export class PathTile extends MapTile {
     if (this.targetHex.isLegal) {
       this.rotateToMax(hex2)
     }
-    this.showValue(hex2?.legalMark?.label.text);
+    this.valueText = hex2?.legalMark?.label.text;
     super.dragFunc(hex, ctx);
-  }
-
-  showValue(value = '0' ) {
-    this.valueText.text = value;
-    this.reCache()
   }
 
   override dropFunc(targetHex: IHex2, ctx: DragContext): void {
     if (targetHex.tile && targetHex !== this.source.hex) targetHex.tile.sendHome();
-    super.dropFunc(targetHex, ctx);
+    if (this.valueText === '-1') {
+      targetHex = this.fromHex; // bad rotation: return to sender
+    }
+    const vt = this.valueText, cln = vt?.indexOf(':');
+    if (cln >= 0) this.valueText = vt.slice(0, cln);
+    super.dropFunc(targetHex, ctx); // this.placeTile(targetHex)
     if (!this.source?.sourceHexUnit) this.source.nextUnit();
     this.targetHex = this.source.hex as Hex2;
   }

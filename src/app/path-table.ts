@@ -132,7 +132,7 @@ export class PathTable extends Table {
   }
 
   override markLegalHexes(tile: Tile, ctx: DragContext): number {
-    ctx.gameState = this.gamePlay.gameState;
+    ctx.gameState = this.gamePlay.gameState; // gameState->gamePlay->table->cardPanel->rules
     return super.markLegalHexes(tile, ctx);
   }
 }

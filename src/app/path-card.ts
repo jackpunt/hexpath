@@ -72,12 +72,12 @@ class PRgen {
     const nm = nf?.length ?? 0;
     return nm;
   }
-  /** @return -1: bad | 0: no join | 1: n+ factors match on this edge */
+  /** @return -1: bad OR 0: no join OR nm: nm >= n factors match on this edge */
   efunc_matches_n = (n: number, tile: PathTile, hex: Hex1, dir: HexDir) => {
     const sdf0 = tile.afhex.scf(dir)
     const join = (hex.links[dir] as Hex1)?.tile;
     const nm = join?.afhex.scf(H.dirRev[dir]).filter((v, ndx) => (v == sdf0[ndx])).length ?? 0;
-    return join ? ((nm < n) ? -1 : 1) : 0;
+    return join ? ((nm < n) ? -1 : nm) : 0;
   }
 
   vfunc_matches_n(n: number, tile: PathTile, hex: Hex1) {
