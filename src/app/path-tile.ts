@@ -1,11 +1,12 @@
 import { C } from "@thegraid/common-lib";
 import { CenterText, CircleShape, PaintableShape } from "@thegraid/easeljs-lib";
-import { type DragContext, Hex2 as Hex2Lib, HexShape, type IHex2, MapTile, Meeple, Player, TileSource } from "@thegraid/hexlib";
+import { type DragContext, H, Hex2 as Hex2Lib, HexShape, type IHex2, MapTile, Meeple, Player, type Tile, TileSource, TP } from "@thegraid/hexlib";
 import { AfHex } from "./af-hex";
+import type { GameState } from "./game-state";
 import type { PathRule } from "./path-card";
 import { type PathHex as Hex1, type PathHex2 as Hex2, } from "./path-hex";
-import type { PathTable } from "./path-table";
 
+const Hdirs = TP.useEwTopo ? H.ewDirs : H.nsDirs;
 
 // TODO: make a TileSource (bag of tile)
 // specialize Player & PlayerPanel, also GameState (see hexmarket)
@@ -96,26 +97,27 @@ export class PathTile extends MapTile {
   }
 
   /**
-   * Try all rotations of this tile at given Hex, return total value from rules.
+   * Evaluate rules for this tile at given Hex, for each value of rotation = 0..5;
    * @param toHex
    * @param rules rules that can/must be satisfied; each giving a value
    * @return total_value[] for each rotation. (a value is -1 if toHex w/rotation is prohibited)
    */
   ruleValuesOnHex(toHex: Hex1, ...rules: PathRule[]) {
     const rotated = this.rotated;
-    const valueAtRotation =  toHex.linkDirs.map((dir, n) => {
-      this.rotated = n;
-      // value for each rule (@ this rotation)
-      const values = rules.map(rule => rule.value(this, toHex)); // [rv(0), rv(1),rv(3)] for each rule
-      const fails = values.filter(v => v < 0).length > 0; // if any rule failed
-      const rv = fails ? -1 : values.filter(v => v >= 0).reduce((pv, cv) => pv + cv, 0);
-      return rv;
+    const valueAtRotation = Hdirs.map((dir, n) => {
+      return this.ruleValueAtRotation(n, toHex, ...rules)
     })
     this.rotated = rotated;
     return valueAtRotation;
   }
-  maxRuleValue(toHex: Hex1, rules: PathRule[]) {
-    return Math.max(...this.ruleValuesOnHex(toHex, ...rules));
+
+  /** rules.map --> [-1 | sum(rule.value)] */
+  ruleValueAtRotation(n: number, toHex: Hex1, ...rules: PathRule[]) {
+    this.rotated = n; // set ABSOLUTE rotation of afhex relative to ORGINAL spec
+    const values = rules.map(rule => rule.value(this, toHex)); // [rv(0), rv(1),rv(3)] for each rule
+    const fails = values.filter(v => v < 0).length > 0; // if any rule failed
+    const rv = fails ? -1 : values.filter(v => v >= 0).reduce((pv, cv) => pv + cv, 0);
+    return rv; // rules=[] --> rv = 0;
   }
 
   // TODO: consider RuleCards & rotation.
@@ -124,31 +126,64 @@ export class PathTile extends MapTile {
     if (!(toHex as IHex2).isOnMap) return false; // until we have a discard bag
     if (!!toHex.tile) return false;
     if ((this.hex as IHex2)?.isOnMap && ctx?.lastShift) return true; // re-place tile
-    const maxV = this.valueOnHex(hex2, ctx)
-    if (maxV < 0) return false;
-    hex2.legalMark.label.text = `${maxV}`;
-    return true;
-  }
-  valueOnHex(toHex: Hex1, ctx?: DragContext) {
-    const { gameState } = ctx ?? {}, table = gameState?.table as PathTable | undefined;
-    const rules = table?.cardPanel.rules;
-    const maxV = rules ? this.maxRuleValue(toHex, rules) : 0;
-    return maxV;
+    const maxV = this.maxValueOnHex(hex2, ctx)
+    return (maxV >= 0)
   }
 
+  rulesFromCtx (ctx?: DragContext) {
+    return (ctx?.gameState as GameState | undefined)?.table?.cardPanel.rules ?? [];
+  }
+
+  maxValueOnHex(toHex: Hex1, ctx?: DragContext) {
+    const rules = this.rulesFromCtx(ctx); // may be []
+    const values = this.ruleValuesOnHex(toHex, ...rules); // [v(r=0), v(r=1), ..., v(r=5)]
+    const mark = (toHex as Hex2).legalMark;
+    mark.valuesAtRot = values; // sets maxV & label.text
+    return mark.maxV;
+  }
+
+  rotateNext(rot = 0, hex = this.targetHex) {
+    this.rotate(rot)
+    const value = hex.legalMark?.valuesAtRot[this.rotated];
+    this.showValue(`${value}`);
+    this.stage?.update()
+  }
+
+  rotateToMax(hex = this.targetHex) {
+    const maxV = hex.legalMark.maxV, rot = this.rotated;
+    const values = hex.legalMark.valuesAtRot;
+    if (!values) return; // back to bag...
+    const values2 = values.concat(values); // ndx in range: [0..12)
+    const ndx = values2.findIndex((v, n) => (n > rot) && (v == maxV)); // next rotated that matches maxV
+    this.rotated = ndx;
+    this.reCache()
+    this.stage?.update()
+    return
+  }
+  targetHex!: Hex2; // latest targetHex from dragFunc -> ctx.targetHex;
+
+  // dragStart->markLegal; dragFunc
   override dragFunc(hex: IHex2 | undefined, ctx: DragContext): void {
     const hex2 = hex as Hex2;
-    if (hex?.isOnMap) this.showValue(hex2);
+    if (ctx.targetHex === this.targetHex) return;
+    this.targetHex = ctx.targetHex as Hex2;
+    if (this.targetHex.isLegal) {
+      this.rotateToMax(hex2)
+    }
+    this.showValue(hex2?.legalMark?.label.text);
     super.dragFunc(hex, ctx);
   }
-  showValue(hex: Hex2) {
 
+  showValue(value = '0' ) {
+    this.valueText.text = value;
+    this.reCache()
   }
 
   override dropFunc(targetHex: IHex2, ctx: DragContext): void {
-    if (targetHex.tile && targetHex !== this.source?.hex) targetHex.tile.sendHome();
+    if (targetHex.tile && targetHex !== this.source.hex) targetHex.tile.sendHome();
     super.dropFunc(targetHex, ctx);
-    if (!this.source?.sourceHexUnit) this.source?.nextUnit()
+    if (!this.source?.sourceHexUnit) this.source.nextUnit();
+    this.targetHex = this.source.hex as Hex2;
   }
 
 }

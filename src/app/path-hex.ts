@@ -32,8 +32,19 @@ export class HexMap2 extends HexMap<PathHex2> {
 
 }
 
-class LegalMark extends LegalMarkLib {
+export class LegalMark extends LegalMarkLib {
   label = new CenterText('0');
+  maxV!: number;
+  // set by markLegal() -> PathTile.isLegalTarget()
+  _valuesAtRot = [0,0,0,0,0,0,] as number[];
+  get valuesAtRot() { return this._valuesAtRot}
+  set valuesAtRot(values: number[]) {
+    this._valuesAtRot = values;
+    this.maxV = Math.max(...values);
+    const n = values.filter(v => v == this.maxV).length;
+    this.label.text = (n <= 1 || n == 6) ? `${this.maxV}` : `${this.maxV}:${n}`
+  }
+
   override doGraphics(): void {
     this.removeAllChildren();
     this.addChild(new CircleShape(C.legalGreen, this.hex2.radius / 2, '')); // @(0,0)

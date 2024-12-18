@@ -32,8 +32,9 @@ export class GamePlay extends GamePlayLib {
   override bindKeys(): void {
     super.bindKeys();
     const table = this.table;
-    KeyBinder.keyBinder.setKey('w', () => table.dragTile?.rotate(-1))
-    KeyBinder.keyBinder.setKey('e', () => table.dragTile?.rotate(1))
+    KeyBinder.keyBinder.setKey('q', () => table.dragTile?.rotateToMax())
+    KeyBinder.keyBinder.setKey('w', () => table.dragTile?.rotateNext(-1))
+    KeyBinder.keyBinder.setKey('e', () => table.dragTile?.rotateNext(1))
     KeyBinder.keyBinder.setKey('C', () => {
       const scale = TP.cacheTiles
       table.reCacheTiles()}

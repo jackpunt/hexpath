@@ -117,7 +117,7 @@ export class AfHex extends NamedContainer {
   get rotated() { return this._rotated; }
   set rotated(rot) {
     const rotn = ((rot % 6) + 6) % 6; // in range: [0..6)
-    this.rotate((rotn - this.rotated) % 6); // (-6..6)
+    this.rotate((rotn - this.rotated) % 6); // arg in range: (-6..6)
   }
 
   /** increase rotation by rot;

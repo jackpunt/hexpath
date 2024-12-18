@@ -1,3 +1,4 @@
+import { C } from "@thegraid/common-lib";
 import { Stage, type Container } from "@thegraid/easeljs-module";
 import { Hex2, Table, Tile, TileSource, TP, type DragContext, type IHex2 } from "@thegraid/hexlib";
 import type { GamePlay } from "./game-play";
@@ -26,11 +27,17 @@ export class PathTable extends Table {
     super.makePerPlayer();
   }
 
+  override toggleText(vis = !this.isVisible): void {
+    this.newHexes.forEach(hex => hex.showText(vis))
+    super.toggleText(vis);
+  }
+
   makeSourceAtRowCol<T extends Tile>(ms: (hex: Hex2) => TileSource<T>,
     name = 'tileSource', row = 1, col = 1, dy = 0,
     hexC = this.hexC,
   ) {
     const hex = this.newHex2(row, col, name, hexC) as IHex2;
+    hex.hexShape.paint(C.grey224);
     const source = ms(hex);
     source.permuteAvailable();
     source.counter.y += TP.hexRad * dy;
@@ -42,7 +49,7 @@ export class PathTable extends Table {
     this.initialVis = true;
     super.layoutTable2();
     PathTile.makeAllTiles();      // populate PathTile.allTiles
-    this.makeSourceAtRowCol(PathTile.makeSource, 'tileBag', 1, 2.3, -.6);
+    this.makeSourceAtRowCol(PathTile.makeSource, 'tileBag', 1, 2.3, +.6);
 
     PathCard.makeAllCards(this);      // populate PathCard.cardByName
   // TODO: reshuffle discard into source when draw from empty source
