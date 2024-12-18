@@ -90,7 +90,7 @@ class PRgen {
   vfunc_match_sum(n: number, tile: PathTile, hex: Hex1) {
     const ev = Hdirs.map(dir => this.efunc_match_sum(tile, hex, dir)); // [ef(NE), ef(E)...ef(NW)]
     const sum = ev.reduce((pv, cv) => pv + cv, 0); // an edge may be 0, but never -1;
-    return sum < 0 ? -1 : sum;
+    return sum < n ? -1 : sum;
   }
 
   ruleSpecs: RuleSpec[] = [
