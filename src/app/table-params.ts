@@ -6,12 +6,13 @@ declare type Params = Record<string, any>;
 
 export class TP extends TPLib {
   static {
+    const tp = TPLib;
     // do not 'override' --> set lib value
-    TP.useEwTopo = true;
-    TP.maxPlayers = 3;
-    TP.numPlayers = 2;
-    TP.cacheTiles = 2.5;
-    PaintableShape.defaultRadius = TP.hexRad;
+    tp.useEwTopo = true;
+    tp.maxPlayers = 6;       // allows space for CardPanel
+    tp.numPlayers = 2;
+    tp.cacheTiles = 2.5;
+    PaintableShape.defaultRadius = tp.hexRad;
   }
   static override setParams(qParams?: Params, force?: boolean, target?: Params) {
     const TP0 = TP, TPlib = TPLib; // inspectable in debugger

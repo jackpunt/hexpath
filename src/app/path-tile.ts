@@ -95,11 +95,9 @@ export class PathTile extends MapTile {
     this.afhex.rotated = rot;
   }
 
+  /** afhex.rotate() */
   rotate(rot = 1) {
     this.afhex.rotate(rot)
-    this.updateCache();
-    this.stage.update();
-    return;
   }
 
   /**
@@ -126,6 +124,8 @@ export class PathTile extends MapTile {
     return rv; // rules=[] --> rv = 0;
   }
 
+  /** max of maxV found during markLegal->isLegalTarget */
+  maxV = 0;
   // TODO: consider RuleCards & rotation.
   override isLegalTarget(toHex: Hex1, ctx?: DragContext): boolean {
     const hex2 = toHex as Hex2;
@@ -133,6 +133,7 @@ export class PathTile extends MapTile {
     if (!!toHex.tile) return false;
     if ((this.hex as IHex2)?.isOnMap && ctx?.lastShift) return true; // re-place tile
     const maxV = this.maxValueOnHex(hex2, ctx)
+    this.maxV = Math.max(maxV, this.maxV);
     return (maxV >= 0)
   }
 
@@ -150,6 +151,7 @@ export class PathTile extends MapTile {
 
   rotateNext(rot = 0, hex = this.targetHex) {
     this.rotate(rot)
+    this.updateCache();
     this.valueText = `${hex.legalMark?.valuesAtRot[this.rotated]}`; // if (value === '-1') drop --> fromHex
     this.stage?.update()
   }
@@ -161,15 +163,30 @@ export class PathTile extends MapTile {
     const values2 = values.concat(values); // ndx in range: [0..12)
     const ndx = values2.findIndex((v, n) => (n > rot) && (v == maxV)); // next rotated that matches maxV
     this.rotated = ndx;
-    this.reCache()
+    this.valueText = `${maxV}`;
     this.stage?.update()
     return
+  }
+
+  override dragStart(ctx: DragContext): void {
+    super.dragStart(ctx)
+    this.maxV = -1;  // dragStart is before markLegal()
+    this.targetHex = this.fromHex as Hex2;
+  }
+
+  setLegalColors(maxV = this.maxV, C_max = 'rgba(0,100,200,.3)') {
+    this.fromHex.map.forEachHex(hex => {
+      const lm = (hex as Hex2).legalMark, mv = lm.maxV;
+      if (hex.isLegal) lm.doGraphics(mv == maxV ? C_max : undefined)
+    })
+
   }
   targetHex!: Hex2; // latest targetHex from dragFunc -> ctx.targetHex;
 
   // dragStart->markLegal; dragFunc
   override dragFunc(hex: IHex2 | undefined, ctx: DragContext): void {
     const hex2 = hex as Hex2;
+    if (ctx.info.first) this.setLegalColors();
     if (ctx.targetHex === this.targetHex) return;
     this.targetHex = ctx.targetHex as Hex2;
     if (this.targetHex.isLegal) {

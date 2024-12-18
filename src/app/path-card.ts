@@ -60,24 +60,33 @@ export class PathRule implements NamedObject {
   }
 }
 
+type SCF = (0 | 1 | 2);
 class PRgen {
   // @return number of matching facets [0..3] on join of given dir (OR 0 if no join)
   efunc_match_sum = (tile: PathTile, hex: Hex1, dir: HexDir) => {
-    const sdf0 = tile.afhex.scf(dir)
+    const scf0 = tile.afhex.scf(dir)
     const join = (hex.links[dir] as Hex1)?.tile;
     const rdir = H.dirRev[dir];
-    // count number of matching sdf facets: [0..3] OR (0 if no join)
-    const sdf1 = join?.afhex.scf(rdir);
-    const nf = sdf1?.filter((v, ndx) => (v == sdf0[ndx]));
+    // count number of matching scf facets: [0..3] OR (0 if no join)
+    const scf1 = join?.afhex.scf(rdir);
+    const nf = scf1?.filter((v, ndx) => (v == scf0[ndx]));
     const nm = nf?.length ?? 0;
     return nm;
   }
   /** @return -1: bad OR 0: no join OR nm: nm >= n factors match on this edge */
   efunc_matches_n = (n: number, tile: PathTile, hex: Hex1, dir: HexDir) => {
-    const sdf0 = tile.afhex.scf(dir)
+    const scf0 = tile.afhex.scf(dir)
     const join = (hex.links[dir] as Hex1)?.tile;
-    const nm = join?.afhex.scf(H.dirRev[dir]).filter((v, ndx) => (v == sdf0[ndx])).length ?? 0;
+    const nm = join?.afhex.scf(H.dirRev[dir]).filter((v, ndx) => (v == scf0[ndx])).length ?? 0;
     return join ? ((nm < n) ? -1 : nm) : 0;
+  }
+  /** each join matches on scf[ndx] (shape,color,fill); return nm */
+  efunc_match_scf = (ndx: SCF, tile: PathTile, hex: Hex1, dir: HexDir): number => {
+    const scf0 = tile.afhex.scf(dir)
+    const join = (hex.links[dir] as Hex1)?.tile;
+    const nm = join?.afhex.scf(H.dirRev[dir]).filter((v, ndx) => (v == scf0[ndx])).length ?? 0;
+    const m = join?.afhex.scf(H.dirRev[dir])[ndx] == scf0[ndx];
+    return join ? (m ? nm : -1) : 0;
   }
 
   vfunc_matches_n(n: number, tile: PathTile, hex: Hex1) {
@@ -93,17 +102,34 @@ class PRgen {
     return sum < n ? -1 : sum;
   }
 
+  // the indicated factor must match:
+  vfunc_match_scf(n: SCF, tile: PathTile, hex: Hex1) {
+    const ev = Hdirs.map(dir => this.efunc_match_scf(n, tile, hex, dir)); // [ef(NE), ef(E)...ef(NW)]
+    const fail = ev.find(v => v < 0);
+    if (fail) return -1;
+    const sum = ev.reduce((pv, cv) => pv + cv, 0); // an edge may be 0, but never -1;
+    const nm = ev.filter(v => v > 0).length;
+    return sum;
+  }
+
   ruleSpecs: RuleSpec[] = [
     // each edge matches 2 (of the 3) factors:
     { id: 'matches2', c: 1, vf: (t, h) => this.vfunc_matches_n(2, t, h), d: 'all joins 2+ matches' },
     // at least 5 total matches:
     { id: 'match5', c: 1, vf: (t, h) => this.vfunc_match_sum(5, t, h), d: '5+ total matches' },
 
-    {id: 'rule1', c: 1, vf: (tile: PathTile, hex: Hex1) => 1},
-    {id: 'rule2', c: 2, vf: (tile: PathTile, hex: Hex1) => 2},
-    {id: 'rule3', c: 3, vf: (tile: PathTile, hex: Hex1) => 3},
+    { id: 'shapes', c: 1, vf: (t, h) => this.vfunc_match_scf(0, t, h), d: 'all shapes match' },
+    { id: 'colors', c: 1, vf: (t, h) => this.vfunc_match_scf(1, t, h), d: 'all colors match' },
+    { id: 'fills', c: 1, vf: (t, h) => this.vfunc_match_scf(2, t, h), d: 'all fills match' },
+
+    // {id: 'rule1', c: 1, vf: (tile: PathTile, hex: Hex1) => 1},
+    // {id: 'rule2', c: 2, vf: (tile: PathTile, hex: Hex1) => 2},
+    // {id: 'rule3', c: 3, vf: (tile: PathTile, hex: Hex1) => 3},
 
   ]
+  // 3 shapes, 2-3 colors, 2 fills
+  // match all colors; match all shapes; match all fills
+
 }
 
 export class PathCard extends Tile {

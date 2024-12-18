@@ -1,5 +1,5 @@
 import { KeyBinder } from "@thegraid/easeljs-lib";
-import { GamePlay as GamePlayLib, Scenario, type HexMap } from "@thegraid/hexlib";
+import { GamePlay as GamePlayLib, Scenario, type HexMap, TP as TPLib } from "@thegraid/hexlib";
 import { GameSetup } from "./game-setup";
 import { GameState } from "./game-state";
 import type { PathHex } from "./path-hex";
@@ -36,6 +36,7 @@ export class GamePlay extends GamePlayLib {
     KeyBinder.keyBinder.setKey('w', () => table.dragTile?.rotateNext(-1))
     KeyBinder.keyBinder.setKey('e', () => table.dragTile?.rotateNext( 1))
     KeyBinder.keyBinder.setKey('C', () => {
+      const tp=TP, tpl=TPLib
       const scale = TP.cacheTiles
       table.reCacheTiles()}
     )   // TODO: also recache afhex!

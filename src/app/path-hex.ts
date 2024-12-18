@@ -45,9 +45,9 @@ export class LegalMark extends LegalMarkLib {
     this.label.text = (n <= 1 || n == 6) ? `${this.maxV}` : `${this.maxV}:${n}`
   }
 
-  override doGraphics(): void {
+  override doGraphics(color = C.legalGreen): void {
     this.removeAllChildren();
-    this.addChild(new CircleShape(C.legalGreen, this.hex2.radius / 2, '')); // @(0,0)
+    this.addChild(new CircleShape(color, this.hex2.radius / 2, '')); // @(0,0)
     this.addChild(this.label)
   }
 }
