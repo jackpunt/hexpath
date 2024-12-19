@@ -1,7 +1,8 @@
 import { stime } from "@thegraid/common-lib";
-import { Hex2, newPlanner, NumCounterBox, Player as PlayerLib } from "@thegraid/hexlib";
+import { newPlanner, NumCounterBox, Player as PlayerLib } from "@thegraid/hexlib";
 import { GamePlay } from "./game-play";
-import { CardPanel } from "./path-card";
+import { CardPanel, PathCard } from "./path-card";
+import { PathHex2 as Hex2 } from "./path-hex";
 import { type PathTable as Table } from "./path-table";
 import { PathTile } from "./path-tile";
 import { TP } from "./table-params";
@@ -74,25 +75,41 @@ export class Player extends PlayerLib {
 
   readonly tileRack: Hex2[] = [];
   makeTileRack(table: Table, row = 0, ncols = 4) {
-    const rack = table.hexesOnPanel(this.panel, row, ncols);
+    const rack = table.hexesOnPanel(this.panel, row, ncols) as Hex2[];
     rack.forEach((hex, n) => hex.Aname = `${this.index}R${n}`)
     this.tileRack.splice(0, this.tileRack.length, ...rack); // replace all elements
+  }
+  get tiles() { return this.cardRack.map(hex => hex.tile) }
+
+  /** placeTile on Player's panel, in empty hex. */
+  addTile(tile?: PathTile ) {
+    const hex2 = this.tileRack.find(hex => !hex.tile) as Hex2;
+    if (!hex2) return;
+    if (!tile) tile = PathTile.source.takeUnit();
+    tile?.placeTile(hex2);
+    return tile;
+  }
+
+  /** Draw tiles into tileRack until it is full. */
+  fillTileRack() {
+    while (this.tileRack.find(hex => !hex.tile) && this.addTile()) { }
   }
 
   readonly cardRack: Hex2[] = [];
   makeCardRack(table: Table, row = 0, ncols = 4) {
-    new CardPanel(table, 0, 0).fillCardRack0(table, this.panel, this.cardRack, row, ncols)
+    new CardPanel(table, 0, 0).fillAryWithCardHex(table, this.panel, this.cardRack, row, ncols)
+  }
+
+  addCard(card?: PathCard) {
+    const hex2 = this.cardRack.find(hex => !hex.tile) as Hex2;
+    if (!hex2) return;
+    if (!card) card = PathCard.source.takeUnit();
+    card?.placeTile(hex2);
+    return card;
+
   }
   /** for ScenarioParser.saveState() */ // TODO: code cards with index, or string->card
-  get hand() { return this.cardRack }
+  get cards() { return this.cardRack.map(hex => hex.tile) }
 
-  /** placeTile on Player's panel, in empty hex. */
-  drawTile() {
-    const rack = this.tileRack.find(hex => !hex.tile) as Hex2;
-    if (!rack) return;
-    const tile = PathTile.source.takeUnit();
-    tile?.placeTile(rack);
-    // console.log(stime(this, `.newTile: ${this.Aname}`), this.acqTiles.map(t => t?.Aname), this.acqTiles)
-    return !!tile;
-  }
+
 }

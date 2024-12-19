@@ -1,9 +1,9 @@
 import { C } from "@thegraid/common-lib";
 import { CenterText, CircleShape, PaintableShape } from "@thegraid/easeljs-lib";
-import { type DragContext, H, Hex2 as Hex2Lib, HexShape, type IHex2, MapTile, Meeple, Player, TileSource, TP } from "@thegraid/hexlib";
+import { type DragContext, H, Hex2 as Hex2Lib, HexShape, type IHex2, MapTile, Meeple, Player, type Table, TileSource, TP } from "@thegraid/hexlib";
 import { AfHex } from "./af-hex";
 import type { GameState } from "./game-state";
-import type { PathRule } from "./path-card";
+import { CardHex, type PathRule } from "./path-card";
 import { type PathHex as Hex1, type PathHex2 as Hex2 } from "./path-hex";
 
 const Hdirs = TP.useEwTopo ? H.ewDirs : H.nsDirs;
@@ -129,7 +129,8 @@ export class PathTile extends MapTile {
   // TODO: consider RuleCards & rotation.
   override isLegalTarget(toHex: Hex1, ctx?: DragContext): boolean {
     const hex2 = toHex as Hex2;
-    if (!(toHex as IHex2).isOnMap) return false; // until we have a discard bag
+    if (hex2 instanceof CardHex) return false; // cardRack
+    if (!hex2.isOnMap) return true;            // tileRack
     if (!!toHex.tile) return false;
     if ((this.hex as IHex2)?.isOnMap && ctx?.lastShift) return true; // re-place tile
     const maxV = this.maxValueOnHex(hex2, ctx)
@@ -169,6 +170,8 @@ export class PathTile extends MapTile {
   }
 
   override dragStart(ctx: DragContext): void {
+    this.setPlayerAndPaint(this.gamePlay.curPlayer)
+    this.updateCache()
     super.dragStart(ctx)
     this.maxV = -1;  // dragStart is before markLegal()
     this.targetHex = this.fromHex as Hex2;
@@ -204,7 +207,9 @@ export class PathTile extends MapTile {
     const vt = this.valueText, cln = vt?.indexOf(':');
     if (cln >= 0) this.valueText = vt.slice(0, cln);
     super.dropFunc(targetHex, ctx); // this.placeTile(targetHex)
+
     if (!this.source?.sourceHexUnit) this.source.nextUnit();
+    this.source?.sourceHexUnit.setPlayerAndPaint(undefined);
     this.targetHex = this.source.hex as Hex2;
   }
 

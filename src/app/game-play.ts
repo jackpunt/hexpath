@@ -24,8 +24,6 @@ export class GamePlay extends GamePlayLib {
   // Demo from Acquire to draw some tiles:
   playerDone() {
     const plyr = this.curPlayer;
-    while (plyr.tileRack.find(hex => !hex.tile) && plyr.drawTile()) {
-    }
     plyr.gamePlay.hexMap.update(); // TODO: this.playerDone(ev)
   }
 

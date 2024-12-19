@@ -38,26 +38,28 @@ class AfMark extends Shape implements NamedObject {
   Aname: string;
   /** draw AfMark on North edge. */
   drawAfMark(afs: AfShape, afc: AfColor, aff: AfFill) {
-    const color = AF.colorn[afc];
-    const wm = (TP.hexRad * TP.afSize), w2 = wm / 2; // size of mark
+    const color = AF.colorn[afc], isf = (aff == AF.F);
+    const wm = (TP.hexRad * TP.afSize) - TP.afWide / 2, w2 = wm / 2; // size of mark (esp: width)
+    const sq = TP.afSquare, ym = sq ? .87 : 1.35;
     const wl = TP.afWide; // line thickness (StrokeStyle)
-    const k = -1, y0 = k + TP.hexRad * H.sqrt3 / 2, y1 = w2 * .87 - y0
+    const k = 1, y0 = k - TP.hexRad * H.sqrt3_2;
+    const y1 = (isf ? ym * 1.07 : ym) * w2 + y0
+    const ar = sq ? w2 : w2 * 1.07;
     const arc0 = 0 * (Math.PI / 2), arclen = Math.PI
     const g = this.graphics
     // ss(wl) = setStrokeStyle(width, caps, joints, miterlimit, ignoreScale)
     // g.s(afc) == beginStroke; g.f(afc) == beginFill
-    if (aff == AF.L) { g.ss(wl).s(color) } else { g.f(color) }
-    g.mt(-w2, 0 - y0);
+    if (isf) { g.f(color) } else { g.ss(wl).s(color) }
+    g.mt(w2, y0);
     (afs == AF.A) ?
-      //g.at(0, y1, w2, 0 - y0, w2) : // one Arc
-      g.arc(0, 0 - y0, w2, arc0, arc0 + arclen, false) :
+      g.mt(ar, y0).arc(0, y0, ar, arc0, arc0 + arclen, false) :
       (afs == AF.T) ?
-        g.lt(0, y1).lt(w2, 0 - y0) : // two Lines
+        g.lt(0, y1).lt(-w2, y0) : // two Lines
         (afs == AF.S) ?
-          g.lt(-w2, y1).lt(w2, y1).lt(w2, 0 - y0) : // three Lines
+          g.lt(w2, y1).lt(-w2, y1).lt(-w2, y0) : // three Lines
           undefined;
           // endStroke() or endFill()
-    if (aff == AF.L) { g.es() } else { g.ef() }
+    if (isf) { g.ef() } else { g.es() }
     return g
   }
   // draw in N orientation, rotate to dir;

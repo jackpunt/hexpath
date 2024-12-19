@@ -42,5 +42,6 @@ export class TP extends TPLib {
   static initialCoins = 100;
   static afSize = .5;
   static afWide = 3;
-  static afSCF = [3,2,2]; // nShapes, nColors, nFills
+  static afSquare = false;
+  static afSCF = [3, 2, 2]; // nShapes, nColors, nFills
 }

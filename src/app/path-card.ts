@@ -14,9 +14,12 @@ import { TP } from "./table-params";
 type Vfunc = (tile: PathTile, hex: Hex1) => number;
 /** @return value of edge in placement [-1 if proscribed]  */
 type Efunc = (tile: PathTile, hex: Hex1, dir: HexDir) => number;
-/** id:ident, d:descript, c: cost, vf: value, ef: edge */
-type RuleSpec = {id: string, d?: string, c: number, vf?: Vfunc, ef?: Efunc}
+/** id: ident, c: cost, t: type, d: description, vf: value, ef: edge */
+type RuleSpec = {
+  id: string, c: number, t?: string, d?: string, vf?: Vfunc, ef?: Efunc
+}
 const Hdirs = TP.useEwTopo ? H.ewDirs : H.nsDirs;
+const Hdir2 = Hdirs.slice(0, 3); // half of Hdirs
 /**
  * A rule/constraint: determine isLegal & value of a placement (tile, rotation, location)
  *
@@ -25,11 +28,13 @@ export class PathRule implements NamedObject {
   Aname?: string | undefined;
   text = '';
   cost = 0; // purchase or placement cost, also base value
+  type = 'edge';
 
   constructor(ps: RuleSpec) {
     this.Aname = ps.id;
     this.text = ps.d ?? ps.id;
     this.cost = ps.c;
+    if (ps.t) this.type = ps.t;    // edge | own
     if (ps.vf) this.valuef = ps.vf;
     if (ps.ef) this.edgef = ps.ef;
   }
@@ -62,16 +67,11 @@ export class PathRule implements NamedObject {
 
 type SCF = (0 | 1 | 2);
 class PRgen {
-  // @return number of matching facets [0..3] on join of given dir (OR 0 if no join)
-  efunc_match_sum = (tile: PathTile, hex: Hex1, dir: HexDir) => {
-    const scf0 = tile.afhex.scf(dir)
-    const join = (hex.links[dir] as Hex1)?.tile;
-    const rdir = H.dirRev[dir];
-    // count number of matching scf facets: [0..3] OR (0 if no join)
-    const scf1 = join?.afhex.scf(rdir);
-    const nf = scf1?.filter((v, ndx) => (v == scf0[ndx]));
-    const nm = nf?.length ?? 0;
-    return nm;
+  vfunc_matches_n(n: number, tile: PathTile, hex: Hex1) {
+    // all joins match on N+ factors (from AfKey = ['aShapes', 'aColors', 'aFills'])
+    // fail if any join matches on 0 or 1 factor
+    const ev = Hdirs.map(dir => this.efunc_matches_n(n, tile, hex, dir)) as number[];
+    return ev.find(v => v < 0) ? -1 : ev.reduce((pv, cv) => pv + cv, 0);
   }
   /** @return -1: bad OR 0: no join OR nm: nm >= n factors match on this edge */
   efunc_matches_n = (n: number, tile: PathTile, hex: Hex1, dir: HexDir) => {
@@ -80,26 +80,18 @@ class PRgen {
     const nm = join?.afhex.scf(H.dirRev[dir]).filter((v, ndx) => (v == scf0[ndx])).length ?? 0;
     return join ? ((nm < n) ? -1 : nm) : 0;
   }
-  /** each join matches on scf[ndx] (shape,color,fill); return nm */
-  efunc_match_scf = (ndx: SCF, tile: PathTile, hex: Hex1, dir: HexDir): number => {
-    const scf0 = tile.afhex.scf(dir)
-    const join = (hex.links[dir] as Hex1)?.tile;
-    const nm = join?.afhex.scf(H.dirRev[dir]).filter((v, ndx) => (v == scf0[ndx])).length ?? 0;
-    const m = join?.afhex.scf(H.dirRev[dir])[ndx] == scf0[ndx];
-    return join ? (m ? nm : -1) : 0;
-  }
-
-  vfunc_matches_n(n: number, tile: PathTile, hex: Hex1) {
-    // all joins match on N+ factors (from AfKey = ['aShapes', 'aColors', 'aFills'])
-    // fail if any join matches on 0 or 1 factor
-    const ev = Hdirs.map(dir => this.efunc_matches_n(n, tile, hex, dir)) as number[];
-    return ev.find(v => v < 0) ? -1 : ev.reduce((pv, cv) => pv + cv, 0);
-  }
 
   vfunc_match_sum(n: number, tile: PathTile, hex: Hex1) {
     const ev = Hdirs.map(dir => this.efunc_match_sum(tile, hex, dir)); // [ef(NE), ef(E)...ef(NW)]
     const sum = ev.reduce((pv, cv) => pv + cv, 0); // an edge may be 0, but never -1;
     return sum < n ? -1 : sum;
+  }
+  // @return number of matching facets [0..3] on join of given dir (OR 0 if no join)
+  efunc_match_sum = (tile: PathTile, hex: Hex1, dir: HexDir) => {
+    const scf0 = tile.afhex.scf(dir)
+    const join = (hex.links[dir] as Hex1)?.tile;
+    const nf = join?.afhex.scf(H.dirRev[dir]).filter((v, ndx) => (v == scf0[ndx]));
+    return nf?.length ?? 0;  // num of matches: [0..3] OR (0 if no join)
   }
 
   // the indicated factor must match:
@@ -111,6 +103,40 @@ class PRgen {
     const nm = ev.filter(v => v > 0).length;
     return sum;
   }
+  /** each join matches on scf[ndx] (shape,color,fill); return nm */
+  efunc_match_scf = (ndx: SCF, tile: PathTile, hex: Hex1, dir: HexDir): number => {
+    const scf0 = tile.afhex.scf(dir)
+    const join = (hex.links[dir] as Hex1)?.tile;
+    const nm = join?.afhex.scf(H.dirRev[dir]).filter((v, ndx) => (v == scf0[ndx])).length ?? 0;
+    const m = join?.afhex.scf(H.dirRev[dir])[ndx] == scf0[ndx];
+    return join ? (m ? nm : -1) : 0;
+  }
+
+  // make a line-of-3 in at least one dir; score line length in each dir (if len > 3)
+  vfunc_make_line(n: number, tile: PathTile, hex: Hex1) {
+    const ev = Hdirs.map(dir => this.efunc_line_len(tile, hex, dir)); // [ef(NE), ef(E)...ef(NW)]
+    const evN = ev.filter(v => v >= n)
+    const sum = evN.reduce((pv, cv) => pv + cv, 0); // an edge may be 0, but never -1;
+    return sum > 0 ? sum : -1;
+  }
+  /** line_len >= n, in given dir; given hex + 2 others */
+  efunc_line_len = (tile: PathTile, hex: Hex1, dir: HexDir) => {
+    let len = 1, hexN = hex.nextHex(dir), join = hexN?.tile, plyr = tile?.player;
+    for (; plyr && hexN?.tile?.player === plyr; len++, hexN = hexN?.nextHex(dir)) { }
+    return join ? len : 0;
+  }
+
+  // efunc_fill_in(tile: PathTile, hex: Hex1, dir: HexDir) {
+  //   let len = 1, hexN = hex.nextHex(dir), join = hexN?.tile, plyr = tile?.player;
+  //   for (; plyr && hexN?.tile?.player === plyr; len++, hexN = hexN?.nextHex(dir)) { }
+  //   return join ? len : 0;
+  // }
+  vfunc_fill_in(n: number, tile: PathTile, hex: Hex1) {
+    const ev = Hdirs.map(dir => this.efunc_line_len(tile, hex, dir)); // [ef(NE), ef(E)...ef(NW)]
+    const evN = Hdir2.map((dir, n) => (ev[n] > 1 && ev[(n + 3) % 6] > 1) ? (ev[n] + ev[(n + 3) % 6] - 1) : 0)
+    const sum = evN.reduce((pv, cv) => pv + cv, 0); // an edge may be 0, but never -1;
+    return sum > 0 ? sum : -1;
+  }
 
   ruleSpecs: RuleSpec[] = [
     // each edge matches 2 (of the 3) factors:
@@ -121,14 +147,18 @@ class PRgen {
     { id: 'shapes', c: 1, vf: (t, h) => this.vfunc_match_scf(0, t, h), d: 'all shapes match' },
     { id: 'colors', c: 1, vf: (t, h) => this.vfunc_match_scf(1, t, h), d: 'all colors match' },
     { id: 'fills', c: 1, vf: (t, h) => this.vfunc_match_scf(2, t, h), d: 'all fills match' },
-
-    // {id: 'rule1', c: 1, vf: (tile: PathTile, hex: Hex1) => 1},
-    // {id: 'rule2', c: 2, vf: (tile: PathTile, hex: Hex1) => 2},
-    // {id: 'rule3', c: 3, vf: (tile: PathTile, hex: Hex1) => 3},
-
+    // own
+    { id: 'line3', c: 1, vf: (t, h) => this.vfunc_make_line(3, t, h), d: 'line of 3' },
+    { id: 'fill-in', c: 1, vf: (t, h) => this.vfunc_fill_in(2, t, h), d: 'fill-in gap' },
   ]
+  // edge rules:
   // 3 shapes, 2-3 colors, 2 fills
   // match all colors; match all shapes; match all fills
+
+  // owner rules:
+  // line-of-3: line-length; fill-in-line: line-length;
+  // diamond-4: 2-connected-cluster-size; 2-connected: network size
+  // adj-to-opp: num-opp-edges;
 
 }
 
@@ -273,7 +303,7 @@ export class CardHex extends Hex2 {
     CardHex.allCardHex.push(this);
   }
 
-  get card() { return this.tile as any as PathCard }
+  get card() { return this.tile as any as PathCard | undefined }
 
   // when sendHome() hits top of discard:
   override unitCollision(hexUnit: PathCard, unit: PathCard, isMeep?: boolean): void {
@@ -307,20 +337,20 @@ export class CardPanel extends NamedContainer {
     this.table.setToRowCol(this, row, col);
   }
 
-  /** fill rack0 with ncols of CardHex */
-  fillCardRack0(table: Table, panel: Container, rack0: IHex2[], row = 0, ncols = 4) {
-    const rack = table.hexesOnPanel(panel, row, ncols, CardHex);
-    rack.forEach((hex, n) => { hex.Aname = `C${n}`})
-    rack0.splice(0, rack0.length, ...rack);
+  /** fill hexAry with row of CardHex above panel */
+  fillAryWithCardHex(table: Table, panel: Container, hexAry: IHex2[], row = 0, ncols = 4) {
+    const hexes = table.hexesOnPanel(panel, row, ncols, CardHex);
+    hexes.forEach((hex, n) => { hex.Aname = `C${n}`})
+    hexAry.splice(0, hexAry.length, ...hexes);
   }
 
   readonly cardRack: CardHex[] = [];
   makeCardRack(table: Table, ncols = 3) {
-    this.fillCardRack0(table, this, this.cardRack, 1, ncols)
+    this.fillAryWithCardHex(table, this, this.cardRack, 1, ncols)
     table.dragger.makeDragable(this, this, undefined, this.dropFunc)
   }
 
-  isCardHex(hex: Hex2) {
+  isCardHex(hex: Hex2): hex is CardHex {
     return (hex instanceof CardHex)
   }
 
@@ -341,7 +371,12 @@ export class CardPanel extends NamedContainer {
     })
   }
 
+  addCard(card?: PathCard) {
+    const hex = this.cardRack.find(hex => !hex.tile)
+    card?.placeTile(hex);
+  }
+
   get rules() {
-    return this.cardRack.map(hex => hex.card).filter(card => !!card).map(card=>card.rule)
+    return (this.cardRack.map(hex => hex.card).filter(card => !!card) as PathCard[]).map(card => card.rule)
   }
 }

@@ -1,6 +1,6 @@
 import { C } from "@thegraid/common-lib";
 import { Stage, type Container } from "@thegraid/easeljs-module";
-import { Hex2, Table, Tile, TileSource, TP, type DragContext, type IHex2 } from "@thegraid/hexlib";
+import { Hex, Hex2, Table, Tile, TileSource, TP, type DragContext, type IHex2 } from "@thegraid/hexlib";
 import type { GamePlay } from "./game-play";
 import type { Scenario } from "./game-setup";
 import { CardPanel, PathCard } from "./path-card";
@@ -61,9 +61,9 @@ export class PathTable extends Table {
 
   // TODO: promote to hexlib:
   /**
-   *
+   * Make a row of hexC that appear above panel at [row0, 0] (but are not children of panel)
    * @param panel offset new Hexes to appear above given Container
-   * @param row0 [.73] offset in y direction
+   * @param row0 [.75] offset in y direction
    * @param colN number of Hex to create
    * @param hexC Constructor<IHex2>
    * @returns hexC[] with each hex.cont.xy offset to appear over panel
@@ -72,12 +72,11 @@ export class PathTable extends Table {
     const rv = [] as IHex2[], map = this.hexMap;
     const { x: x0, y: y0 } = map.xyFromMap(panel, 0, 0); // offset from hexCont to panel
     const { width: panelw } = panel.getBounds()
-    const { x: xn, dydr } = Hex2.xywh(undefined, undefined, 0, colN - 1); // x of last cell
+    const { x: xn, dydr } = Hex.xywh(undefined, undefined, 0, colN - 1); // x of last cell
     const dx = (panelw - xn) / 2, dy = row0 * dydr; // allocate any extra space (wide-xn) to either side
     for (let col = 0; col < colN; col++) {
-      // not using newHex2() b/c that inserts the half-row offset
-      const hex = new hexC(map, 0, col, `C${col}`) // in map.mapCont.hexCont
-      rv.push(hex as IHex2 );
+      const hex = this.newHex2(.01, col, `C${col}`, hexC); // in map.mapCont.hexCont
+      rv.push(hex);
       hex.cont.x += (dx - x0);
       hex.cont.y += (dy - y0);
       hex.cont.visible = false;
@@ -102,7 +101,7 @@ export class PathTable extends Table {
    * last action of curPlayer is to draw their next tile.
    */
   override addDoneButton() {
-    const rv = super.addDoneButton(undefined, 500, 250); // table.doneButton('Done')
+    const rv = super.addDoneButton(undefined, 500, 240); // table.doneButton('Done')
     this.doneClick0 = this.doneClicked; // override
     this.doneClicked = (ev) => {
       this.playerDone(ev);
