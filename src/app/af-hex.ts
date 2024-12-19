@@ -1,7 +1,7 @@
 import { Random, rotateAry, stime } from "@thegraid/common-lib"
 import { NamedContainer, type NamedObject } from "@thegraid/easeljs-lib"
 import { Shape } from "@thegraid/easeljs-module"
-import { H, HexDir, type EwDir, type NsDir } from "@thegraid/hexlib"
+import { H, Hex, HexDir, type EwDir, type NsDir } from "@thegraid/hexlib"
 import { TP } from "./table-params"
 
 
@@ -36,20 +36,25 @@ export const FillA = FLaC.concat();
 /** a Mark (one of six) on the edge of Hex2 to indicate affinity */
 class AfMark extends Shape implements NamedObject {
   Aname: string;
-  /** draw AfMark on North edge. */
+  /** draw AfMark on North edge;
+   * - TP.hexRad [60] size of hex: find edge & cache
+   * - TP.afSize: [.5] width of outer edge
+   * - TP.afWide: [3] pixels of line width when AF.L
+   * - TP.afSquare: [false] true to shrink depth to be afSize / 2
+   */
   drawAfMark(afs: AfShape, afc: AfColor, aff: AfFill) {
     const color = AF.colorn[afc], isf = (aff == AF.F);
-    const wm = (TP.hexRad * TP.afSize) - TP.afWide / 2, w2 = wm / 2; // size of mark (esp: width)
-    const sq = TP.afSquare, ym = sq ? .87 : 1.35;
-    const wl = TP.afWide; // line thickness (StrokeStyle)
-    const k = 1, y0 = k - TP.hexRad * H.sqrt3_2;
-    const y1 = (isf ? ym * 1.07 : ym) * w2 + y0
-    const ar = sq ? w2 : w2 * 1.07;
+    const wl = TP.afWide, wl2 = wl / 2; // line thickness (StrokeStyle)
+    const wm = TP.afSize * TP.hexRad - wl2, w2 = wm / 2; // size of mark (esp: width)
+    const sq = TP.afSquare, ym = sq ? .87 : 1.35; // larger vs square
+    const k = 1, y0 = k - TP.hexRad * H.sqrt3_2;  // offset to top edge
+    const y1 = ym * w2 + (isf ? wl2 : 0) + y0; // make solids a bit larger b/c lack of line thickness
+    const ar = sq ? w2 : w2 + wl2; // make arc a bit larger b/c arc doesn't use y1
     const arc0 = 0 * (Math.PI / 2), arclen = Math.PI
     const g = this.graphics
     // ss(wl) = setStrokeStyle(width, caps, joints, miterlimit, ignoreScale)
     // g.s(afc) == beginStroke; g.f(afc) == beginFill
-    if (isf) { g.f(color) } else { g.ss(wl).s(color) }
+    if (isf) { g.f(color) } else { g.ss(wl,1).s(color) }
     g.mt(w2, y0);
     (afs == AF.A) ?
       g.mt(ar, y0).arc(0, y0, ar, arc0, arc0 + arclen, false) :
@@ -60,22 +65,29 @@ class AfMark extends Shape implements NamedObject {
           undefined;
           // endStroke() or endFill()
     if (isf) { g.ef() } else { g.es() }
-    return g
+    return [afs, afc, aff] as SCF;
   }
-  // draw in N orientation, rotate to dir;
+  // draw in N orientation, then rotate to dir;
   constructor(dir: HexDir, shape: AfShape, color: AfColor, fill: AfFill) {
     super();
-    this.Aname = this.name = `AfMark:${shape},${color},${fill}`;  // for debug, not production
-    this.drawAfMark(shape, color, fill);
+    this.scf = this.drawAfMark(shape, color, fill);
+    this.Aname = this.name = `AfMark:${this.scf_id}`;  // for debug, not production
     this.mouseEnabled = false;
     this.rotation = H.dirRot[dir];
   }
+  scf!: SCF;
+  get scf_id() { return this.scf.join('') }
 }
 /** Affinity keys in AfHex */
-export type AfKey = keyof Pick<AfHex, 'aShapes' | 'aColors' | 'aFills'>
-/** Container of AfMark Shapes */
-export class AfHex extends NamedContainer {
-  static afKeys: AfKey[] = ['aShapes', 'aColors', 'aFills'];
+export type AfKey = typeof AfHex.afKeys[number];
+
+/** Container of AfMark Shapes;
+ *
+ * Each AfHex instance[AfKey] indicates the AfMark(SCF) in each topoDir,
+ * the arrays are rotated as the AfHex is rotated.
+ */
+export class AfHex extends NamedContainer implements Record<AfKey, string[]> {
+  static afKeys = ['aShapes', 'aColors', 'aFills'] as const;
   /** @deprecated advisory - for debug/analysis */
   get rot() { return Math.round(this.rotation / 60) }
   /**
@@ -92,25 +104,29 @@ export class AfHex extends NamedContainer {
     Aname = ``,
   ) {
     super(Aname)
-    const hexdirs = TP.useEwTopo ? H.ewDirs : H.nsDirs;
+    const topoDirs = TP.useEwTopo ? H.ewDirs : H.nsDirs;
     // make AfMark(shape,color,fill0 for each of six sides
-    hexdirs.forEach((dir, ndx) => {
+    this.afMarks = topoDirs.map((dir, ndx) => {
       const scf = AfHex.afKeys.map(key => this[key][ndx]) as SCF;
       const afm = new AfMark(dir, ...scf);
-      this.addChild(afm)
+      return this.addChild(afm)
     })
+    this._scf = this.afMarks.map(m => m.scf);
     this.mouseEnabled = false;
     this.reCache()
   }
+  afMarks!: AfMark[];
+  _scf!: SCF[]
 
   /** could be called from Tile.reCache() if that were necessary... */
   reCache(scale = TP.cacheTiles) {
     if (this.cacheID) this.uncache();
-    const w = TP.hexRad * H.sqrt3, h = TP.hexRad * 2 // see also: Hex2.cache()
+    const { w, h } = Hex.xywh(); // with TP.useEwTopo
     this.cache(-w / 2, -h / 2, w, h, scale)
   }
 
   override clone() {
+    // copy reference instance so it can be freely reused, rotated:
     return new AfHex(this.aShapes, this.aColors, this.aFills, this.Aname);
   }
 
@@ -129,15 +145,13 @@ export class AfHex extends NamedContainer {
     const rotn = ((rot % 6) + 6) % 6; // in range: [0..6)
     this._rotated = (this._rotated + rotn) % 6;
     this.rotation = 60 * this._rotated; // degrees, not radians
-    this.aColors = rotateAry(this.aColors, rotn)
-    this.aShapes = rotateAry(this.aShapes, rotn)
-    this.aFills = rotateAry(this.aFills, rotn)
+    this._scf = rotateAry(this._scf, rotn)
   }
 
   /** return [shape, color, fill] of indicated edge */
   scf(dir: HexDir) {
-    const ndx = TP.useEwTopo ? H.ewDirs.indexOf(dir as EwDir) : H.nsDirs.indexOf(dir as NsDir)
-    return [this.aShapes[ndx], this.aColors[ndx], this.aFills[ndx]] as SCF;
+    const ndx = (TP.useEwTopo ? H.ewDirs : H.nsDirs).indexOf(dir as EwDir & NsDir);
+    return this._scf[ndx];
   }
 
   static allAfHexMap: Map<string, AfHex> = new Map();
@@ -146,24 +160,27 @@ export class AfHex extends NamedContainer {
   /**
    * make all the allAfHex.
    *
-   * affinity defined by (2x3x2) permutation of each of shape[c,s,t] & color[r,g,b] & fill[line|solid]
+   * affinity defined by permutation of each shape[a,s,t] & color[r,g,b] & fill[l,s]
    *
-   * each "AfHex" is a [cached] Container of 6 AfMark Shapes (on each edge of Hex)
-   * annotated with shape[6]: [a,s,t] and color[6]: [r,g,b] and fill[6]: [l,f]
-   * each annotation rotated to align with ewDirs
+   * Each "AfHex" is a [cached] Container of 6 AfMark Shapes (on each edge of Hex)
+   * annotated with an SCF - shape[6]: [a,s,t] and color[6]: [r,g,b] and fill[6]: [l,f]
    *
-   * @param nSCF number of Shapes, Color, Fill: [TP.afSCF] up to size of shapes, colors, fills
-   * @param shapes ShapeA [AF.S, AF.A, AF.T]
-   * @param colors ColorA [AF.R, AF.G, AF.B]
-   * @param fills  FillA [AF.F, AF.L]
+   * When the AfMark is rotated, the SCF[] is also rotated to stay aligned.
+   *
+   * Each element of nSCF should be a factor of 6, <= length of the supplied shapes, colors, fills respectively.
+   *
+   * @param nSCF number of Shapes, Colors, Fills to use: [TP.afSCF]
+   * @param shapes [ShapeA] = [AF.S, AF.A, AF.T]
+   * @param colors [ColorA] = [AF.R, AF.G, AF.B]
+   * @param fills  [FillA]  = [AF.F, AF.L]
    */
-  static makeAllAfHex(scf = TP.afSCF,
+  static makeAllAfHex(nSCF = TP.afSCF,
     shapes = ShapeA,   // [AF.S, AF.T, AF.A],
     colors = ColorA,   // [AF.R, AF.G, AF.B]
     fills = FillA,     // [AF.F, AF.L]
   ) {
     // number of Shapes, Colors, Fills to use: (expect: 1 or 2 or 3)
-    const [ns, nc, nf] = scf; // ASSERT: shapes.length >= ns, etc
+    const [ns, nc, nf] = nSCF; // ASSERT: shapes.length >= ns, etc
     const nOfEach = (nt: number) => 6 / nt; // assert: (6 % nt === 0)
     const build = (nt: number, ...elts: any[]) => {
       const rv = new Array(6), ne = nOfEach(nt);

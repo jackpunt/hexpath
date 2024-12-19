@@ -40,8 +40,8 @@ export class TP extends TPLib {
   static override meepleY0 = 0;
 
   static initialCoins = 100;
-  static afSize = .5;
-  static afWide = 3;
+  static afSize = .5;   // * TP.hexRad
+  static afWide = 3;    // pixels
   static afSquare = false;
   static afSCF = [3, 2, 2]; // nShapes, nColors, nFills
 }
