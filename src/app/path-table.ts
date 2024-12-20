@@ -46,7 +46,7 @@ export class PathTable extends Table {
   }
 
   override layoutTable2() {
-    this.initialVis = true;
+    this.initialVis = false;
     super.layoutTable2();
     PathTile.makeAllTiles();      // populate PathTile.allTiles
     this.makeSourceAtRowCol(PathTile.makeSource, 'tileBag', 1, 2.3, +.6);

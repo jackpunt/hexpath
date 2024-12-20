@@ -1,6 +1,6 @@
-import { GameSetup as GameSetupLib, MapCont, Scenario as Scenario0, Table, TP, type Hex1 } from '@thegraid/hexlib';
+import { GameSetup as GameSetupLib, MapCont, Scenario as Scenario0, Table, TP } from '@thegraid/hexlib';
 import { GamePlay } from './game-play';
-import { PathHex2 as Hex2, HexMap2 } from './path-hex';
+import { PathHex as Hex1, PathHex2 as Hex2, HexMap2 } from './path-hex';
 import { PathTable } from './path-table';
 import { PathTile } from './path-tile';
 import { Player } from './player';

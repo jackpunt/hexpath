@@ -46,10 +46,11 @@ class AfMark extends Shape implements NamedObject {
     const color = AF.colorn[afc], isf = (aff == AF.F);
     const wl = TP.afWide, wl2 = wl / 2; // line thickness (StrokeStyle)
     const wm = TP.afSize * TP.hexRad - wl2, w2 = wm / 2; // size of mark (esp: width)
-    const sq = TP.afSquare, ym = sq ? .87 : 1.35; // larger vs square
+    // ~eccentricity: multiply w2
+    const ec = (typeof TP.afSquare === 'number') ? TP.afSquare : (TP.afSquare ? .87 : 1.35);
     const k = 1, y0 = k - TP.hexRad * H.sqrt3_2;  // offset to top edge
-    const y1 = ym * w2 + (isf ? wl2 : 0) + y0; // make solids a bit larger b/c lack of line thickness
-    const ar = sq ? w2 : w2 + wl2; // make arc a bit larger b/c arc doesn't use y1
+    const y1 = ec * w2 + (isf ? wl2 : 0) + y0; // make solids a bit larger b/c lack of line thickness
+    const ar = (1 + (ec - 1) * .3) * w2 + wl2; // make arc a bit larger b/c arc doesn't use y1
     const arc0 = 0 * (Math.PI / 2), arclen = Math.PI
     const g = this.graphics
     // ss(wl) = setStrokeStyle(width, caps, joints, miterlimit, ignoreScale)

@@ -199,7 +199,8 @@ export class PathCard extends Tile {
     super.reCache(0); // no cache?
   }
   override markLegal(table: Table, setLegal = (hex: Hex2) => { hex.isLegal = false; }, ctx?: DragContext): void {
-    CardHex.allCardHex.forEach(setLegal);
+    table.gamePlay.curPlayer.cardRack.forEach(setLegal)
+    table.cardPanel.cardRack.forEach(setLegal);
   }
   override isLegalTarget(toHex: Hex2, ctx?: DragContext): boolean {
     if (toHex === PathCard.source.hex) return false;

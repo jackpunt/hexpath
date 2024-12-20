@@ -42,6 +42,6 @@ export class TP extends TPLib {
   static initialCoins = 100;
   static afSize = .5;   // * TP.hexRad
   static afWide = 3;    // pixels
-  static afSquare = false;
+  static afSquare = false as boolean | number; // .87 ? 1.35
   static afSCF = [3, 2, 2]; // nShapes, nColors, nFills
 }

@@ -3,8 +3,9 @@ import { CenterText, CircleShape, PaintableShape } from "@thegraid/easeljs-lib";
 import { type DragContext, H, Hex2 as Hex2Lib, HexShape, type IHex2, MapTile, Meeple, Player, type Table, TileSource, TP } from "@thegraid/hexlib";
 import { AfHex } from "./af-hex";
 import type { GameState } from "./game-state";
-import { CardHex, type PathRule } from "./path-card";
+import { type PathRule } from "./path-card";
 import { type PathHex as Hex1, type PathHex2 as Hex2 } from "./path-hex";
+import { type PathTable } from "./path-table";
 
 const Hdirs = TP.useEwTopo ? H.ewDirs : H.nsDirs;
 
@@ -58,6 +59,12 @@ export class PathTile extends MapTile {
   set valueText(value: string) {
     this._valueText.text = value;
     this.reCache()
+  }
+  _placeValue = 0;
+  get placeValue() { return this._placeValue }
+  set placeValue(v) {
+    this._placeValue = v;
+    this.valueText = (v < 0) ? '' :`${v}`;
   }
 
   constructor(Aname: string, player: Player | undefined, afhex: AfHex) {
@@ -124,20 +131,6 @@ export class PathTile extends MapTile {
     return rv; // rules=[] --> rv = 0;
   }
 
-  /** max of maxV found during markLegal->isLegalTarget */
-  maxV = 0;
-  // TODO: consider RuleCards & rotation.
-  override isLegalTarget(toHex: Hex1, ctx?: DragContext): boolean {
-    const hex2 = toHex as Hex2;
-    if (hex2 instanceof CardHex) return false; // cardRack
-    if (!hex2.isOnMap) return true;            // tileRack
-    if (!!toHex.tile) return false;
-    if ((this.hex as IHex2)?.isOnMap && ctx?.lastShift) return true; // re-place tile
-    const maxV = this.maxValueOnHex(hex2, ctx)
-    this.maxV = Math.max(maxV, this.maxV);
-    return (maxV >= 0)
-  }
-
   rulesFromCtx (ctx?: DragContext) {
     return (ctx?.gameState as GameState | undefined)?.table?.cardPanel.rules ?? [];
   }
@@ -145,6 +138,9 @@ export class PathTile extends MapTile {
   maxValueOnHex(toHex: Hex1, ctx?: DragContext) {
     const rules = this.rulesFromCtx(ctx); // may be []
     const values = this.ruleValuesOnHex(toHex, ...rules); // [v(r=0), v(r=1), ..., v(r=5)]
+    if (toHex.isOnMap && ctx?.lastShift == true) {
+      values.splice(0, values.length, ...values.map(v => Math.max(v, 0)))
+    }
     const mark = (toHex as Hex2).legalMark;
     mark.valuesAtRot = values; // sets maxV & label.text
     return mark.maxV;
@@ -153,7 +149,7 @@ export class PathTile extends MapTile {
   rotateNext(rot = 0, hex = this.targetHex) {
     this.rotate(rot)
     this.updateCache();
-    this.valueText = `${hex.legalMark?.valuesAtRot[this.rotated]}`; // if (value === '-1') drop --> fromHex
+    this.placeValue = hex.legalMark.valuesAtRot[this.rotated]; // if (value === '-1') drop --> fromHex
     this.stage?.update()
   }
 
@@ -164,26 +160,36 @@ export class PathTile extends MapTile {
     const values2 = values.concat(values); // ndx in range: [0..12)
     const ndx = values2.findIndex((v, n) => (n > rot) && (v == maxV)); // next rotated that matches maxV
     this.rotated = ndx;
-    this.valueText = `${maxV}`;
+    this.placeValue = maxV;
     this.stage?.update()
-    return
+    return maxV;
   }
 
   override dragStart(ctx: DragContext): void {
     this.setPlayerAndPaint(this.gamePlay.curPlayer)
-    this.updateCache()
+    this.reCache()
     super.dragStart(ctx)
-    this.maxV = -1;  // dragStart is before markLegal()
     this.targetHex = this.fromHex as Hex2;
   }
 
-  setLegalColors(maxV = this.maxV, C_max = 'rgba(0,100,200,.3)') {
-    this.fromHex.map.forEachHex(hex => {
-      const lm = (hex as Hex2).legalMark, mv = lm.maxV;
-      if (hex.isLegal) lm.doGraphics(mv == maxV ? C_max : undefined)
-    })
-
+  // dragStart -> markLegal; dragFunc(ctx.info.first) -> setLegalColors
+  override markLegal(table: Table, setLegal = (hex: IHex2) => { hex.isLegal = false; }, ctx = table.dragContext) {
+    this.maxV = -1;  // dragStart is before markLegal()
+    ;(table as PathTable).gamePlay.curPlayer.tileRack.forEach(setLegal)
+    table.hexMap.forEachHex(setLegal);
   }
+
+  /** max of maxV found during markLegal->isLegalTarget */
+  maxV = 0;
+  // TODO: consider RuleCards & rotation.
+  override isLegalTarget(toHex: Hex1, ctx?: DragContext): boolean {
+    const hex2 = toHex as Hex2;
+    if (hex2.isOnMap && !!toHex.tile) return false;
+    const maxV = this.maxValueOnHex(hex2, ctx)
+    this.maxV = Math.max(maxV, this.maxV);
+    return (maxV >= 0)
+  }
+
   targetHex!: Hex2; // latest targetHex from dragFunc -> ctx.targetHex;
 
   // dragStart->markLegal; dragFunc
@@ -193,26 +199,37 @@ export class PathTile extends MapTile {
     if (ctx.targetHex === this.targetHex) return;
     this.targetHex = ctx.targetHex as Hex2;
     if (this.targetHex.isLegal) {
-      this.rotateToMax(hex2)
+      this.rotateToMax(hex2); // placeValue = maxV
+    } else {
+      this.placeValue = -1;
     }
-    this.valueText = hex2?.legalMark?.label.text;
     super.dragFunc(hex, ctx);
   }
 
+  setLegalColors(maxV = this.maxV, C_max = 'rgba(0,100,200,.3)', C_zero='rgba(200,200,0,.3)') {
+    this.fromHex.map.forEachHex(hex => {
+      const lm = (hex as Hex2).legalMark, mv = lm.maxV;
+      if (hex.isLegal) lm.doGraphics(mv == maxV ? C_max : mv == 0 ? C_zero : undefined)
+    })
+
+  }
   override dropFunc(targetHex: IHex2, ctx: DragContext): void {
     if (targetHex.tile && targetHex !== this.source.hex) targetHex.tile.sendHome();
-    if (this.valueText === '-1') {
+    if (this.placeValue == -1) {
       targetHex = this.fromHex; // bad rotation: return to sender
     }
-    const vt = this.valueText, cln = vt?.indexOf(':');
-    if (cln >= 0) this.valueText = vt.slice(0, cln);
     super.dropFunc(targetHex, ctx); // this.placeTile(targetHex)
 
     if (!this.source?.sourceHexUnit) this.source.nextUnit();
     this.source?.sourceHexUnit.setPlayerAndPaint(undefined);
     this.targetHex = this.source.hex as Hex2;
   }
-
+  override placeTile(toHex?: Hex1, payCost?: boolean): void {
+    const mark = (toHex as Hex2).legalMark;
+    const value = this.placeValue;
+    if (value > 0 && this.player) this.player.coins += value;
+    super.placeTile(toHex, payCost);
+  }
 }
 export class PathMeep extends Meeple {
   loc = [1,2];

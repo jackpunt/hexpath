@@ -33,7 +33,7 @@ export class GamePlay extends GamePlayLib {
     KeyBinder.keyBinder.setKey('q', () => table.dragTile?.rotateToMax())
     KeyBinder.keyBinder.setKey('w', () => table.dragTile?.rotateNext(-1))
     KeyBinder.keyBinder.setKey('e', () => table.dragTile?.rotateNext( 1))
-    KeyBinder.keyBinder.setKey('C', () => {
+    KeyBinder.keyBinder.setKey('M-c', () => {
       const tp=TP, tpl=TPLib
       const scale = TP.cacheTiles
       table.reCacheTiles()}
