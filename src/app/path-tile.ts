@@ -140,6 +140,8 @@ export class PathTile extends MapTile {
     const values = this.ruleValuesOnHex(toHex, ...rules); // [v(r=0), v(r=1), ..., v(r=5)]
     if (toHex.isOnMap && ctx?.lastShift == true) {
       values.splice(0, values.length, ...values.map(v => Math.max(v, 0)))
+    } else if (!toHex.isOnMap) { // tileRack always legal, maxV = 0
+      values.splice(0, values.length, ...values.map(v => 0))
     }
     const mark = (toHex as Hex2).legalMark;
     mark.valuesAtRot = values; // sets maxV & label.text
