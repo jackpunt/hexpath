@@ -59,33 +59,6 @@ export class PathTable extends Table {
     return;
   }
 
-  // TODO: promote to hexlib:
-  /**
-   * Make a row of hexC that appear above panel at [row0, 0] (but are not children of panel)
-   * @param panel offset new Hexes to appear above given Container
-   * @param row0 [.75] offset in y direction
-   * @param colN number of Hex to create
-   * @param hexC Constructor<IHex2>
-   * @returns hexC[] with each hex.cont.xy offset to appear over panel
-   */
-  hexesOnPanel(panel: Container, row0 = .75, colN = 4, hexC = this.hexC) {
-    const rv = [] as IHex2[], map = this.hexMap;
-    const { x: x0, y: y0 } = map.xyFromMap(panel, 0, 0); // offset from hexCont to panel
-    const { width: panelw } = panel.getBounds()
-    const { x: xn, dydr } = Hex.xywh(undefined, undefined, 0, colN - 1); // x of last cell
-    const dx = (panelw - xn) / 2, dy = row0 * dydr; // allocate any extra space (wide-xn) to either side
-    for (let col = 0; col < colN; col++) {
-      const hex = this.newHex2(.01, col, `C${col}`, hexC); // in map.mapCont.hexCont
-      rv.push(hex);
-      hex.cont.x += (dx - x0);
-      hex.cont.y += (dy - y0);
-      hex.cont.visible = false;
-      hex.legalMark.setOnHex(hex)
-      // panel.addChild(hex.cont)
-    }
-    return rv;
-  }
-
   cardPanel!: CardPanel;
   addCardPanel() {
     const np = 6, pindex = np; // in slot 1 (left-center)

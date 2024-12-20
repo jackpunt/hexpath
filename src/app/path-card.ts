@@ -307,12 +307,12 @@ export class CardHex extends Hex2 {
   get card() { return this.tile as any as PathCard | undefined }
 
   // when sendHome() hits top of discard:
-  override unitCollision(hexUnit: PathCard, unit: PathCard, isMeep?: boolean): void {
+  override unitCollision(hexUnit: Tile, unit: Tile, isMeep?: boolean): void {
     const disc = PathCard.discard;
     if (this === disc.hex) {   // sendHome preempts to do this path:
-      disc.availUnit(hexUnit); // stack previous card; hexUnit.visible = false;
-      disc.availUnit(unit);    // push new card
-      disc.nextUnit(unit);     // pop into sourceHexUnit [unit.source = PC.discard]
+      disc.availUnit(hexUnit as PathCard); // stack previous card; hexUnit.visible = false;
+      disc.availUnit(unit as PathCard);    // push new card
+      disc.nextUnit(unit as PathCard);     // pop into sourceHexUnit [unit.source = PC.discard]
     } else {
       hexUnit.moveTo(disc.hex);// discard previous card === hexUnit.sendHome()
     }
