@@ -1,9 +1,9 @@
-import { C, S, stime } from "@thegraid/common-lib";
+import { C, S } from "@thegraid/common-lib";
 import { CenterText, NamedContainer, RectShape, RectWithDisp, type DragInfo, type NamedObject, type Paintable } from "@thegraid/easeljs-lib";
 import type { Container, DisplayObject, MouseEvent } from "@thegraid/easeljs-module";
 import { H, Tile, TileSource, type DragContext, type HexDir, type IHex2 } from "@thegraid/hexlib";
 import { type GamePlay } from "./game-play";
-import { PathHex2 as Hex2, type HexMap2, type PathHex as Hex1 } from "./path-hex";
+import { PathHex2 as Hex2, type PathHex as Hex1, type HexMap2 } from "./path-hex";
 import { type PathTable as Table } from "./path-table";
 import type { PathTile } from "./path-tile";
 import { TP } from "./table-params";
@@ -319,6 +319,8 @@ export class CardHex extends Hex2 {
   }
 }
 
+
+/** auxillary Panel to position a cardRack on the Table (or PlayerPanel). */
 export class CardPanel extends NamedContainer {
   /**
    *
@@ -345,16 +347,14 @@ export class CardPanel extends NamedContainer {
     hexAry.splice(0, hexAry.length, ...hexes);
   }
 
-  readonly cardRack: CardHex[] = [];
-  makeCardRack(table: Table, ncols = 3) {
-    this.fillAryWithCardHex(table, this, this.cardRack, 1, ncols)
-    table.dragger.makeDragable(this, this, undefined, this.dropFunc)
-  }
-
   isCardHex(hex: Hex2): hex is CardHex {
     return (hex instanceof CardHex)
   }
 
+  readonly cardRack: CardHex[] = [];
+  makeDragable(table: Table) {
+    table.dragger.makeDragable(this, this, undefined, this.dropFunc);
+  }
   /**
    * cardRack hexes are not children of this CardPanel.
    * Move them to realign when panel is dragged & dropped

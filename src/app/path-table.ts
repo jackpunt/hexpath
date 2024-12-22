@@ -63,11 +63,10 @@ export class PathTable extends Table {
   addCardPanel() {
     const np = 6, pindex = np; // in slot 1 (left-center)
     const [row, col, dir] = this.panelLoc(pindex, np);
-    const high = 4.133, wide = 4.5;
-    const panel = this.cardPanel = new CardPanel(this, high, wide, row - high / 2, col - wide / 2)
-    this.hexMap.mapCont.backCont.addChild(panel);
-    // this.setToRowCol(panel, row - high / 2, col - wide / 2);
-    panel.makeCardRack(this);
+    const high = 4.133, wide = 4.5; // aligned with PlayerPanel
+    const cardPanel = this.cardPanel = new CardPanel(this, high, wide, row - high / 2, col - wide / 2)
+    cardPanel.fillAryWithCardHex(this, cardPanel, cardPanel.cardRack, 1, 3)
+    cardPanel.makeDragable(this)
   }
 
   /**

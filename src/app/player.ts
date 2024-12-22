@@ -62,15 +62,15 @@ export class Player extends PlayerLib {
   override makePlayerBits(): void {
     super.makePlayerBits()
     this.makeTileRack(this.gamePlay.table, .75, 3);
-    this.makeCardRack(this.gamePlay.table, 2.5, 3)
-    // TODO:
-    // make TileSource for each plane size
-    // make places for acquired cards (hand & in-play policies/events)
-    // display current coins.
-    // Pro-tem hack for Coins counter/display:
-    const k = TP.hexRad / 2;
-    const cc = this.coinCounter = new NumCounterBox('coins', TP.initialCoins, undefined, TP.hexRad / 2);
-    this.panel.addChild(cc); cc.x = this.panel.metrics.wide - k; cc.y = k
+    this.makeCardRack(this.gamePlay.table, 2.5, 3); // Player's cards on playerPanel
+    // display coin counter:
+    const { wide, gap } = this.panel.metrics;
+    const fs = TP.hexRad * .7;
+    const ic = this.coins;
+    const cc = this.coinCounter = new NumCounterBox('coins', ic, undefined, fs);
+    cc.x = wide - 2 * gap; cc.y = cc.high / 2 + 2 * gap;
+    cc.boxAlign('right');
+    this.panel.addChild(cc);
   }
 
   readonly tileRack: Hex2[] = [];
@@ -97,7 +97,9 @@ export class Player extends PlayerLib {
 
   readonly cardRack: Hex2[] = [];
   makeCardRack(table: Table, row = 0, ncols = 4) {
-    new CardPanel(table, 0, 0).fillAryWithCardHex(table, this.panel, this.cardRack, row, ncols)
+    const cardPanel = new CardPanel(table, 0, 0)
+    this.panel.addChild(cardPanel);
+    cardPanel.fillAryWithCardHex(table, this.panel, this.cardRack, row, ncols)
   }
 
   addCard(card?: PathCard) {
