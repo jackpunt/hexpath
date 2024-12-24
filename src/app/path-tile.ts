@@ -201,7 +201,8 @@ export class PathTile extends MapTile {
     if (ctx.targetHex === this.targetHex) return;
     this.targetHex = ctx.targetHex as Hex2;
     if (this.targetHex.isLegal) {
-      this.rotateToMax(hex2); // placeValue = maxV
+       if (this.targetHex.legalMark.maxV > 0)
+        this.rotateToMax(hex2); // placeValue = maxV
     } else {
       this.placeValue = -1;
     }

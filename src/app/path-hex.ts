@@ -2,7 +2,8 @@ import { C, type Constructor } from "@thegraid/common-lib";
 import { CenterText, CircleShape, type Paintable } from "@thegraid/easeljs-lib";
 import { Hex1 as Hex1Lib, Hex2Mixin, HexMap, LegalMark, type Hex } from "@thegraid/hexlib";
 import { CardShape } from "./card-shape";
-import type { PathMeep, PathTile } from "./path-tile";
+import type { PathCard } from "./path-card";
+import type { PathTile } from "./path-tile";
 
 
 // Hex1 has get/set tile/meep -> _tile/_meep
@@ -13,16 +14,18 @@ export class PathHex extends Hex1Lib {
   override get tile() { return super.tile as PathTile; }
   override set tile(tile: PathTile | undefined) { super.tile = tile; } // setUnit(tile, false)
 
-  override get meep() { return super.meep as PathMeep; }
-  override set meep(meep: PathMeep | undefined) { super.meep = meep; } // setUnit(meep, true)
+  override get meep() { return super.meep }
+  override set meep(meep) { super.meep = meep; } // setUnit(meep, true)
 
+  get card() { return super.meep as PathCard | undefined }
+  set card(card) { super.meep = card; }
 }
 
 class PathHex2Lib extends Hex2Mixin(PathHex) {};
 
 export class PathHex2 extends PathHex2Lib {
   override tile: PathTile | undefined; // uses get/set from Hex2Mixin(PathHex)
-  override meep: PathMeep | undefined;
+  override meep: PathCard | undefined;
   override makeLegalMark(): PathLegalMark {
     return new PathLegalMark();
   }

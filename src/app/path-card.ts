@@ -7,6 +7,7 @@ import { type GamePlay } from "./game-play";
 import { PathHex2 as Hex2, type PathHex as Hex1, type HexMap2 } from "./path-hex";
 import { type PathTable as Table } from "./path-table";
 import type { PathTile } from "./path-tile";
+import type { Player } from "./player";
 import { TP } from "./table-params";
 
 
@@ -164,10 +165,12 @@ class PRgen {
 }
 
 export class PathCard extends Tile {
+  override get isMeep() { return true; }
   declare baseShape: RectWithDisp;
   declare gamePlay: GamePlay;
   rule!: PathRule
   descr: CenterText
+  loc = [1, 2];
 
   // Tile { baseShape: RectShape , nameText, descr }
   constructor(rs: RuleSpec) {
@@ -202,8 +205,11 @@ export class PathCard extends Tile {
     setLegal(PathCard.discard.hex as Hex2)
   }
   override isLegalTarget(toHex: Hex2, ctx?: DragContext): boolean {
-    if (toHex === PathCard.source.hex) return false;
-    return true; // (toHex instanceof CardHex)
+    if (toHex.Aname == 'discards') return true;
+    const plyr = ctx?.gameState?.curPlayer as Player | undefined;
+    if (plyr?.cardRack.includes(toHex)) return true;
+    if (plyr?.gamePlay.table.cardPanel.cardRack[0] == (toHex)) return true;
+    return false;
   }
   override dragStart(ctx: DragContext): void {
     super.dragStart(ctx);
@@ -212,12 +218,32 @@ export class PathCard extends Tile {
   }
 
   override dropFunc(targetHex: IHex2, ctx: DragContext): void {
-    if (targetHex?.tile) targetHex.tile.sendHome();
+    const toHex = targetHex as Hex2, card = toHex.card;
+    if (card) card.moveCard(toHex, card, ctx);
     super.dropFunc(targetHex ?? PathCard.discard.hex, ctx);
     if (!PathCard.discard.sourceHexUnit) PathCard.discard.nextUnit(); // reveal discard
     PathCard.discard.updateCounter();
     PathCard.source.updateCounter();
     ctx.targetHex?.map.showMark(undefined); // if (this.fromHex === undefined)
+  }
+
+  moveCard(hex: Hex2, card: PathCard, ctx: DragContext) {
+    // if hex in player.cardRack[]: card.sendHome()
+    // if hex is table.cardRack[0]: shift all cards up
+    const plyr = ctx.gameState?.curPlayer as Player | undefined;
+    const ndx = plyr?.cardRack.indexOf(hex) ?? -1;
+    if (ndx >= 0) {
+      card.sendHome();
+    } else {
+      const ary = plyr?.gamePlay.table.cardPanel.cardRack ?? [];
+      const ndx0 = ary.indexOf(hex), len = ary.length;
+      if (ndx0 !== 0) debugger; // not allowed to drop on other slots...
+      for (let i = len - 1; i >= 0; i--) {
+        const hexN = ary[i], cardN = hexN.card;
+        if (i == len - 1) cardN?.sendHome();
+        else cardN?.moveTo(ary[i + 1]);
+      }
+    }
   }
 
   static cardByName: Map<string,PathCard> = new Map();
@@ -308,9 +334,10 @@ export class CardHex extends Hex2 {
     return new CardShape(colorn);
   }
 
-  get card() { return this.tile as any as PathCard | undefined }
+  // get card() { return this.tile as any as PathCard | undefined }
 
   // when sendHome() hits top of discard:
+  // when dropFunc() hits C0
   override unitCollision(hexUnit: Tile, unit: Tile, isMeep?: boolean): void {
     const disc = PathCard.discard;
     if (this === disc.hex) {   // sendHome preempts to do this path:
