@@ -1,10 +1,11 @@
+import { stime } from '@thegraid/common-lib';
 import { GameSetup as GameSetupLib, MapCont, Scenario as Scenario0, Table, TP } from '@thegraid/hexlib';
 import { GamePlay } from './game-play';
+import { CardHex } from './path-card';
 import { PathHex as Hex1, PathHex2 as Hex2, HexMap2 } from './path-hex';
 import { PathTable } from './path-table';
 import { PathTile } from './path-tile';
 import { Player } from './player';
-import { stime } from '@thegraid/common-lib';
 
 // type Params = {[key: string]: any;}; // until hexlib supplies
 export interface Scenario extends Scenario0 {
@@ -13,6 +14,7 @@ export interface Scenario extends Scenario0 {
 
 /** initialize & reset & startup the application/game. */
 export class GameSetup extends GameSetupLib {
+  declare table: PathTable;
 
   // allow qParams as opt arg:
   override initialize(canvasId: string, qParams = this.qParams): void {
@@ -59,7 +61,10 @@ export class GameSetup extends GameSetupLib {
   }
 
   override startScenario(scenario: Scenario0) {
-    return super.startScenario(scenario)
+    const gp = super.startScenario(scenario)
+    const cmh = this.table.hexMap.cardMarkHexes;
+    cmh.splice(0, cmh.length, ...CardHex.allCardHex)
+    return gp
   }
   /** demo for bringup visualization */
   placeTilesOnMap() {

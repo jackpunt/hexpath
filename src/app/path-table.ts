@@ -1,6 +1,7 @@
-import { C } from "@thegraid/common-lib";
-import { Stage, type Container } from "@thegraid/easeljs-module";
-import { Hex, Hex2, Table, Tile, TileSource, TP, type DragContext, type IHex2 } from "@thegraid/hexlib";
+import { stime } from "@thegraid/common-lib";
+import type { DragInfo } from "@thegraid/easeljs-lib";
+import { Stage } from "@thegraid/easeljs-module";
+import { Hex2, Table, Tile, TileSource, TP, type DragContext, type IHex2 } from "@thegraid/hexlib";
 import type { GamePlay } from "./game-play";
 import type { Scenario } from "./game-setup";
 import { CardPanel, PathCard } from "./path-card";
@@ -14,10 +15,6 @@ export class PathTable extends Table {
   }
   declare gamePlay: GamePlay;
   declare hexMap: HexMap2
-
-  override makeRecycleHex(row?: number | undefined, col?: number | undefined): Hex2 {
-    return undefined as any as Hex2;
-  }
 
   override layoutTable(gamePlay: GamePlay): void {
     const { table, hexMap, gameSetup } = gamePlay;
@@ -37,7 +34,6 @@ export class PathTable extends Table {
     hexC = this.hexC,
   ) {
     const hex = this.newHex2(row, col, name, hexC) as IHex2;
-    hex.hexShape.paint(C.grey224);
     const source = ms(hex);
     source.permuteAvailable();
     source.counter.y += TP.hexRad * dy;
@@ -105,5 +101,11 @@ export class PathTable extends Table {
   override markLegalHexes(tile: Tile, ctx: DragContext): number {
     ctx.gameState = this.gamePlay.gameState; // gameState->gamePlay->table->cardPanel->rules
     return super.markLegalHexes(tile, ctx);
+  }
+
+  // debugg copy; do not keep
+  override dragFunc(tile: Tile, info: DragInfo) {
+    const hex = this.hexUnderObj(tile); // clickToDrag 'snaps' to non-original hex!
+    this.dragFunc0(tile, info, hex);
   }
 }

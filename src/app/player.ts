@@ -21,7 +21,7 @@ export class Player extends PlayerLib {
     super.color = c;
   }
 
-  override gamePlay!: GamePlay;
+  declare gamePlay: GamePlay;
 
   constructor(index: number, gamePlay: GamePlay) {
     super(index, gamePlay);

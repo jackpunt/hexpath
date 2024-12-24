@@ -1,6 +1,7 @@
-import { C } from "@thegraid/common-lib";
-import { CenterText, CircleShape } from "@thegraid/easeljs-lib";
-import { Hex1 as Hex1Lib, Hex2Mixin, HexMap, LegalMark as LegalMarkLib } from "@thegraid/hexlib";
+import { C, type Constructor } from "@thegraid/common-lib";
+import { CenterText, CircleShape, type Paintable } from "@thegraid/easeljs-lib";
+import { Hex1 as Hex1Lib, Hex2Mixin, HexMap, LegalMark, type Hex } from "@thegraid/hexlib";
+import { CardShape } from "./card-shape";
 import type { PathMeep, PathTile } from "./path-tile";
 
 
@@ -22,17 +23,32 @@ class PathHex2Lib extends Hex2Mixin(PathHex) {};
 export class PathHex2 extends PathHex2Lib {
   override tile: PathTile | undefined; // uses get/set from Hex2Mixin(PathHex)
   override meep: PathMeep | undefined;
-  override makeLegalMark(): LegalMark {
-    return new LegalMark();
+  override makeLegalMark(): PathLegalMark {
+    return new PathLegalMark();
   }
-  declare legalMark: LegalMark;
+  declare legalMark: PathLegalMark;
 }
 
 export class HexMap2 extends HexMap<PathHex2> {
-
+  constructor(radius?: number, addToMapCont?: boolean, hexC: Constructor<PathHex2> = PathHex2, Aname?: string) {
+    super(radius, addToMapCont, hexC, Aname)
+    this.cardMark = new CardShape(C.nameToRgbaString(C.grey128, .3), '');
+    this.cardMark.mouseEnabled = false; // prevent objectUnderPoint!
+  }
+  /** the Mark to display on cardMarkhexes */
+  cardMark: Paintable
+  /** Hexes for which we show the CardMark */
+  cardMarkHexes: Hex[] = []
+  override showMark(hex?: Hex): void {
+    const isCardHex = (hex && this.cardMarkHexes.includes(hex))
+    super.showMark(hex, isCardHex ? this.cardMark : this.mark);
+    if (!hex) this.cardMark.visible = false;
+  }
 }
 
-export class LegalMark extends LegalMarkLib {
+
+/** LegalMark agumented to hold: label, maxV, valuesAtRot */
+class PathLegalMark extends LegalMark {
   label = new CenterText('0');
   maxV!: number;
   // set by markLegal() -> PathTile.isLegalTarget()

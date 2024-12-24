@@ -2,6 +2,7 @@ import { C, S } from "@thegraid/common-lib";
 import { CenterText, NamedContainer, RectShape, RectWithDisp, type DragInfo, type NamedObject, type Paintable } from "@thegraid/easeljs-lib";
 import type { Container, DisplayObject, MouseEvent } from "@thegraid/easeljs-module";
 import { H, Tile, TileSource, type DragContext, type HexDir, type IHex2 } from "@thegraid/hexlib";
+import { CardShape } from "./card-shape";
 import { type GamePlay } from "./game-play";
 import { PathHex2 as Hex2, type PathHex as Hex1, type HexMap2 } from "./path-hex";
 import { type PathTable as Table } from "./path-table";
@@ -190,10 +191,7 @@ export class PathCard extends Tile {
   }
 
   override makeShape(): Paintable {
-    const w = TP.hexRad * H.sqrt3 * 59 / 60 - 5, h = w * 1.5;
-    const disp = new RectShape({ x: -w / 2, y: -h / 2, w, h })
-    disp.paint('lavender')
-    return disp;
+    return new CardShape('lavender');
   }
   override reCache(scale?: number): void {
     super.reCache(0); // no cache?
@@ -201,6 +199,7 @@ export class PathCard extends Tile {
   override markLegal(table: Table, setLegal = (hex: Hex2) => { hex.isLegal = false; }, ctx?: DragContext): void {
     table.gamePlay.curPlayer.cardRack.forEach(setLegal)
     table.cardPanel.cardRack.forEach(setLegal);
+    setLegal(PathCard.discard.hex as Hex2)
   }
   override isLegalTarget(toHex: Hex2, ctx?: DragContext): boolean {
     if (toHex === PathCard.source.hex) return false;
@@ -218,6 +217,7 @@ export class PathCard extends Tile {
     if (!PathCard.discard.sourceHexUnit) PathCard.discard.nextUnit(); // reveal discard
     PathCard.discard.updateCounter();
     PathCard.source.updateCounter();
+    ctx.targetHex?.map.showMark(undefined); // if (this.fromHex === undefined)
   }
 
   static cardByName: Map<string,PathCard> = new Map();
@@ -295,13 +295,17 @@ export class CardBack extends PathCard {
   }
 }
 
-/** marker for pseudo Hex placements of CardPanel */
+/** CardShape'd "Hex" for placement of PathCard */
 export class CardHex extends Hex2 {
   /** record all CardHex for PathCard.markLegal() */
   static allCardHex = [] as CardHex[];
   constructor(map: HexMap2, row = 0, col = 0, Aname = '') {
     super(map, row, col, Aname)
     CardHex.allCardHex.push(this);
+  }
+
+  override makeHexShape(colorn = C.grey224): Paintable {
+    return new CardShape(colorn);
   }
 
   get card() { return this.tile as any as PathCard | undefined }
@@ -342,7 +346,7 @@ export class CardPanel extends NamedContainer {
 
   /** fill hexAry with row of CardHex above panel */
   fillAryWithCardHex(table: Table, panel: Container, hexAry: IHex2[], row = 0, ncols = 4) {
-    const hexes = table.hexesOnPanel(panel, row, ncols, CardHex);
+    const hexes = table.hexesOnPanel(panel, row, ncols, CardHex, { gap: .1 });
     hexes.forEach((hex, n) => { hex.Aname = `C${n}`})
     hexAry.splice(0, hexAry.length, ...hexes);
   }

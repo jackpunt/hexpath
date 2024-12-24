@@ -6,6 +6,7 @@ import type { PathHex } from "./path-hex";
 import type { PathTable } from "./path-table";
 import type { Player } from "./player";
 import { TP } from "./table-params";
+import { stime } from "@thegraid/common-lib";
 
 
 export class GamePlay extends GamePlayLib {
@@ -27,9 +28,19 @@ export class GamePlay extends GamePlayLib {
     plyr.gamePlay.hexMap.update(); // TODO: this.playerDone(ev)
   }
 
+  brake = false; // for debugger
+  /** for conditional breakpoints while dragging; inject into any object. */
+  toggleBrake() {
+    const brake = (this.brake = !this.brake);
+    ;(this.table as any)['brake'] = brake;
+    ;(this.hexMap.mapCont.markCont as any)['brake'] = brake;
+    console.log(stime(this, `.toggleBreak:`), brake)
+  }
+
   override bindKeys(): void {
     super.bindKeys();
     const table = this.table;
+    KeyBinder.keyBinder.setKey('C-d', () => this.toggleBrake());
     KeyBinder.keyBinder.setKey('q', () => table.dragTile?.rotateToMax())
     KeyBinder.keyBinder.setKey('w', () => table.dragTile?.rotateNext(-1))
     KeyBinder.keyBinder.setKey('e', () => table.dragTile?.rotateNext( 1))
