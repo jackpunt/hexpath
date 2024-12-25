@@ -1,6 +1,8 @@
-import { GameState as GameStateLib, Phase } from "@thegraid/hexlib";
+import { GameState as GameStateLib, Phase, type Tile } from "@thegraid/hexlib";
 import type { GamePlay } from "./game-play";
+import type { PathCard } from "./path-card";
 import { PathTable as Table } from "./path-table";
+import type { PathTile } from "./path-tile";
 import { Player } from "./player";
 
 export type ActionIdent = 'Act0' | 'Act2';
@@ -21,18 +23,39 @@ export class GameState extends GameStateLib {
     return;
   }
 
-  selectedAction?: ActionIdent; // set when click on action panel or whatever. read by ActionPhase;
-  readonly selectedActions: ActionIdent[] = [];
-  get actionsDone() { return this.selectedActions.length};
+  _tileDone?: PathTile = undefined;
+  _cardDone?: PathCard = undefined;
+  get tileDone() { return this._tileDone; }
+  get cardDone() { return this._cardDone; }
+  set tileDone(v) {
+    this._tileDone = v;
+    if (this.allDone) this.done();
+  }
+  set cardDone(v) {
+    this._cardDone = v;
+    if (this.allDone) this.done();
+  }
+  /** return Table suitable for table?.stopDragging(tile) */
+  notDragable(tile: Tile, card = false) {
+    if (card
+      ? (this.cardDone && tile !== this.cardDone)
+      : (this.tileDone && tile !== this.tileDone)) {
+      this.table.stopDragging(tile.fromHex);
+      return true;
+    }
+    return false;
+  }
+
+  get allDone() { return this.tileDone && this.cardDone }
+
 
   get panel() { return this.curPlayer.panel; }
 
   /** from Acquire, for reference; using base GameState for now */
-  readonly states2: { [index: string]: Phase } = {
+  override readonly states: { [index: string]: Phase } = {
     BeginTurn: {
       start: () => {
-        this.selectedAction = undefined;
-        this.selectedActions.length = 0;
+        this.cardDone = this.tileDone = undefined;
         this.saveGame();
         this.table.doneButton.activate()
         this.phase('ChooseAction');
@@ -42,19 +65,14 @@ export class GameState extends GameStateLib {
       }
     },
     // ChooseAction:
-    // if (2 action done) phase(EndTurn)
-    // else { phase(actionName) }
+    // if (allDone) phase(EndTurn)
     ChooseAction: {
       start: () => {
-        const maxActs = 2;
-        if (this.actionsDone >= maxActs) this.phase('EndTurn');
-        const n = this.selectedActions.length + 1;
-        this.selectedAction = undefined;
-        this.doneButton(`Choice ${n} Done`); // ???
+        if (this.tileDone && this.cardDone) this.phase('EndTurn');
+        this.doneButton(`End Turn`);
       },
-      done: (ok?: boolean) => {
-        const action = this.selectedAction; // set by dropFunc() --> state.done()
-        if (!ok && !action) {
+      done: (ok = false) => {
+        if (!ok && !this.allDone) {
           this.panel.areYouSure('You have an unused action.', () => {
             setTimeout(() => this.done(true), 50);
           }, () => {
@@ -62,24 +80,11 @@ export class GameState extends GameStateLib {
           });
           return;
         }
-        this.selectedActions.unshift(action as ActionIdent); // may unshift(undefined)
-        this.phase(action ?? 'EndTurn');
-      }
-    },
-    EndAction: {
-      nextPhase: 'ChooseAction',
-      start: () => {
-        const nextPhase = this.state.nextPhase = (this.actionsDone >= 2) ? 'EndTurn' : 'ChooseAction';
-        this.phase(nextPhase);     // directly -> nextPhase
-      },
-      done: () => {
-        this.phase(this.state.nextPhase ?? 'Start'); // TS want defined...
+        if (this.allDone || ok) this.phase('EndTurn');
       }
     },
     EndTurn: {
       start: () => {
-        this.selectedAction = undefined;
-        this.selectedActions.length = 0;
         this.gamePlay.endTurn();
         this.phase('BeginTurn');
       },

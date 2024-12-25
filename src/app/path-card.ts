@@ -4,6 +4,7 @@ import type { Container, DisplayObject, MouseEvent } from "@thegraid/easeljs-mod
 import { H, Tile, TileSource, type DragContext, type HexDir, type IHex2 } from "@thegraid/hexlib";
 import { CardShape } from "./card-shape";
 import { type GamePlay } from "./game-play";
+import type { GameState } from "./game-state";
 import { PathHex2 as Hex2, type PathHex as Hex1, type HexMap2 } from "./path-hex";
 import { type PathTable as Table } from "./path-table";
 import type { PathTile } from "./path-tile";
@@ -150,8 +151,8 @@ class PRgen {
     { id: 'colors', c: 1, vf: (t, h) => this.vfunc_match_scf(1, t, h), d: 'all colors match' },
     { id: 'fills', c: 1, vf: (t, h) => this.vfunc_match_scf(2, t, h), d: 'all fills match' },
     // own
-    { id: 'line3', c: 1, vf: (t, h) => this.vfunc_make_line(3, t, h), d: 'line of 3' },
-    { id: 'fill-in', c: 1, vf: (t, h) => this.vfunc_fill_in(2, t, h), d: 'fill-in gap' },
+    { id: 'line3', c: 1, vf: (t, h) => this.vfunc_make_line(3, t, h), d: '-own-\nline of 3' },
+    { id: 'fill-in', c: 1, vf: (t, h) => this.vfunc_fill_in(2, t, h), d: '-own-\nfill-in gap' },
   ]
   // edge rules:
   // 3 shapes, 2-3 colors, 2 fills
@@ -225,27 +226,42 @@ export class PathCard extends Tile {
     PathCard.discard.updateCounter();
     PathCard.source.updateCounter();
     ctx.targetHex?.map.showMark(undefined); // if (this.fromHex === undefined)
-  }
-
-  moveCard(hex: Hex2, card: PathCard, ctx: DragContext) {
-    // if hex in player.cardRack[]: card.sendHome()
-    // if hex is table.cardRack[0]: shift all cards up
-    const plyr = ctx.gameState?.curPlayer as Player | undefined;
-    const ndx = plyr?.cardRack.indexOf(hex) ?? -1;
-    if (ndx >= 0) {
-      card.sendHome();
-    } else {
-      const ary = plyr?.gamePlay.table.cardPanel.cardRack ?? [];
-      const ndx0 = ary.indexOf(hex), len = ary.length;
-      if (ndx0 !== 0) debugger; // not allowed to drop on other slots...
-      for (let i = len - 1; i >= 0; i--) {
-        const hexN = ary[i], cardN = hexN.card;
-        if (i == len - 1) cardN?.sendHome();
-        else cardN?.moveTo(ary[i + 1]);
-      }
+    const gameState = ctx.gameState as GameState, fromHex = this.fromHex as Hex2;
+    const cardRack = (gameState.curPlayer as Player).cardRack;
+    const selfDrop = (toHex == fromHex) || (cardRack.includes(toHex) && cardRack.includes(fromHex))
+    if (!selfDrop) {
+      setTimeout(() => {
+        gameState.cardDone = this; // triggers setNextPlayer; which confuses markLegal()
+      }, 0);
     }
   }
 
+  /** hex contains card, which needs to be moved: */
+  moveCard(hex: Hex2, card: PathCard, ctx: DragContext) {
+    // if hex is 'discards' --> let unitCollision stack them
+    // if hex in player.cardRack[]: card.sendHome()
+    // if hex is table.cardRack[0]: shift all cards up
+    if (hex.Aname == 'discards') return;
+    const plyr = ctx.gameState?.curPlayer as Player | undefined;
+    if (plyr?.cardRack.includes(hex)) {
+      card.sendHome(); // move player card to discards
+    } else {
+      const hexAry = plyr?.gamePlay.table.cardPanel.cardRack ?? [];
+      const len = hexAry.length, ndx0 = hexAry.indexOf(hex);
+      if (ndx0 !== 0) debugger; // not allowed to drop on other slots...
+
+      const move1 = (card: PathCard, ndx: number) => {
+        if (ndx == len) { card.sendHome(); return }
+        const hex1 = hexAry[ndx], card1 = hex1.card;
+        if (card1) move1(card1, ndx + 1);
+        hex1.card = card;
+        card.moveTo(hex1)
+      }
+      move1(card, ndx0 + 1);
+    }
+  }
+
+  static cardBack: CardBack;
   static cardByName: Map<string,PathCard> = new Map();
   static makeAllCards(table: Table, ...prgs: PRgen[]) {
     CardHex.allCardHex.length = 0; // clear before we make all the new ones.
@@ -264,7 +280,7 @@ export class PathCard extends Tile {
     PathCard.cardByName.forEach(card => PathCard.discard.availUnit(card));
     this.reshuffle()
 
-    const cardback = new CardBack(table); // it a Button, mostly.
+    const cardback = PathCard.cardBack = new CardBack(table); // it a Button, mostly.
     cardback.moveTo(PathCard.source.hex); // set position above source.hex
     cardback.moveTo(undefined);
     cardback.on(S.click, (evt) => cardback.clicked(evt), cardback )
@@ -274,8 +290,10 @@ export class PathCard extends Tile {
     // assert: src.sourceHexUnit === undefined [else we would not be shuffling...]
     const disc = PathCard.discard, src = PathCard.source;
     const discarded = disc.filterUnits() // extract all available units
-    disc.deleteAll();
-    discarded.forEach(card => src.availUnit(card));
+    discarded.forEach(card => {
+      disc.deleteUnit(card);
+      src.availUnit(card);
+    });
     src.permuteAvailable()
   }
 
@@ -306,12 +324,17 @@ export class CardBack extends PathCard {
     // do not move or place this card...
   }
   clicked(evt?: MouseEvent) {
-    this.table.dragger.clickToDrag(this, false);
+    if (this.table.gamePlay.gameState.cardDone) {
+      return;
+    }
     if (PathCard.source.numAvailable === 0) PathCard.reshuffle();
     const card = PathCard.source.nextUnit();  // card.moveTo(srchex)
-    if (!card) return;
-    const pt = { x: evt?.localX ?? 0, y: evt?.localY ?? 0 }
-    this.dragNextCard(card, pt)
+    if (card) {
+      const pt = { x: evt?.localX ?? 0, y: evt?.localY ?? 0 }
+      setTimeout(() => {
+        this.dragNextCard(card, pt)
+      }, 4);
+    }
     return;
   }
 

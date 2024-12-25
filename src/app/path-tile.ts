@@ -168,6 +168,7 @@ export class PathTile extends MapTile {
   }
 
   override dragStart(ctx: DragContext): void {
+    if ((this.gamePlay.gameState as GameState).notDragable(this)) return;
     this.setPlayerAndPaint(this.gamePlay.curPlayer)
     this.reCache()
     super.dragStart(ctx)
@@ -203,6 +204,8 @@ export class PathTile extends MapTile {
     if (this.targetHex.isLegal) {
        if (this.targetHex.legalMark.maxV > 0)
         this.rotateToMax(hex2); // placeValue = maxV
+      else
+         this.rotateNext(0, hex2);
     } else {
       this.placeValue = -1;
     }
@@ -226,6 +229,12 @@ export class PathTile extends MapTile {
     if (!this.source?.sourceHexUnit) this.source.nextUnit();
     this.source?.sourceHexUnit.setPlayerAndPaint(undefined);
     this.targetHex = this.source.hex as Hex2;
+    const selfDrop = (this.hex == this.fromHex)
+    if (!selfDrop) {
+      setTimeout(() => {
+        (ctx.gameState as GameState).tileDone = this; // return & markLegal() before setNextPlayer
+      }, 1);
+    }
   }
   override placeTile(toHex?: Hex1, payCost?: boolean): void {
     const mark = (toHex as Hex2).legalMark;
