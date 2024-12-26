@@ -1,6 +1,6 @@
 import { C, S } from "@thegraid/common-lib";
 import { CenterText, NamedContainer, RectShape, RectWithDisp, type DragInfo, type NamedObject, type Paintable } from "@thegraid/easeljs-lib";
-import type { Container, DisplayObject, MouseEvent } from "@thegraid/easeljs-module";
+import { Container, DisplayObject, Graphics, MouseEvent } from "@thegraid/easeljs-module";
 import { H, Tile, TileSource, type DragContext, type HexDir, type IHex2 } from "@thegraid/hexlib";
 import { CardShape } from "./card-shape";
 import { type GamePlay } from "./game-play";
@@ -74,7 +74,7 @@ class PRgen {
     // all joins match on N+ factors (from AfKey = ['aShapes', 'aColors', 'aFills'])
     // fail if any join matches on 0 or 1 factor
     const ev = Hdirs.map(dir => this.efunc_matches_n(n, tile, hex, dir)) as number[];
-    return ev.find(v => v < 0) ? -1 : ev.reduce((pv, cv) => pv + cv, 0);
+    return ev.find(v => v < 0) ? -1 : Math.sum(...ev);
   }
   /** @return -1: bad OR 0: no join OR nm: nm >= n factors match on this edge */
   efunc_matches_n = (n: number, tile: PathTile, hex: Hex1, dir: HexDir) => {
@@ -86,7 +86,7 @@ class PRgen {
 
   vfunc_match_sum(n: number, tile: PathTile, hex: Hex1) {
     const ev = Hdirs.map(dir => this.efunc_match_sum(tile, hex, dir)); // [ef(NE), ef(E)...ef(NW)]
-    const sum = ev.reduce((pv, cv) => pv + cv, 0); // an edge may be 0, but never -1;
+    const sum = Math.sum(...ev); // an edge may be 0, but never -1;
     return sum < n ? -1 : sum;
   }
   // @return number of matching facets [0..3] on join of given dir (OR 0 if no join)
@@ -102,7 +102,7 @@ class PRgen {
     const ev = Hdirs.map(dir => this.efunc_match_scf(n, tile, hex, dir)); // [ef(NE), ef(E)...ef(NW)]
     const fail = ev.find(v => v < 0);
     if (fail) return -1;
-    const sum = ev.reduce((pv, cv) => pv + cv, 0); // an edge may be 0, but never -1;
+    const sum = Math.sum(...ev); // an edge may be 0, but never -1;
     const nm = ev.filter(v => v > 0).length;
     return sum;
   }
@@ -119,7 +119,7 @@ class PRgen {
   vfunc_make_line(n: number, tile: PathTile, hex: Hex1) {
     const ev = Hdirs.map(dir => this.efunc_line_len(tile, hex, dir)); // [ef(NE), ef(E)...ef(NW)]
     const evN = ev.filter(v => v >= n)
-    const sum = evN.reduce((pv, cv) => pv + cv, 0); // an edge may be 0, but never -1;
+    const sum = Math.sum(...evN); // an edge may be 0, but never -1;
     return sum > 0 ? sum : -1;
   }
   /** line_len >= n, in given dir; given hex + 2 others */
@@ -129,15 +129,10 @@ class PRgen {
     return join ? len : 0;
   }
 
-  // efunc_fill_in(tile: PathTile, hex: Hex1, dir: HexDir) {
-  //   let len = 1, hexN = hex.nextHex(dir), join = hexN?.tile, plyr = tile?.player;
-  //   for (; plyr && hexN?.tile?.player === plyr; len++, hexN = hexN?.nextHex(dir)) { }
-  //   return join ? len : 0;
-  // }
   vfunc_fill_in(n: number, tile: PathTile, hex: Hex1) {
     const ev = Hdirs.map(dir => this.efunc_line_len(tile, hex, dir)); // [ef(NE), ef(E)...ef(NW)]
     const evN = Hdir2.map((dir, n) => (ev[n] > 1 && ev[(n + 3) % 6] > 1) ? (ev[n] + ev[(n + 3) % 6] - 1) : 0)
-    const sum = evN.reduce((pv, cv) => pv + cv, 0); // an edge may be 0, but never -1;
+    const sum = Math.sum(...evN); // an edge may be 0, but never -1;
     return sum > 0 ? sum : -1;
   }
 
@@ -167,11 +162,11 @@ class PRgen {
 
 export class PathCard extends Tile {
   override get isMeep() { return true; }
-  declare baseShape: RectWithDisp;
+  declare baseShape: RectWithDisp; // makeShape()
   declare gamePlay: GamePlay;
   rule!: PathRule
   descr: CenterText
-  loc = [1, 2];
+  cost = 1;
 
   // Tile { baseShape: RectShape , nameText, descr }
   constructor(rs: RuleSpec) {
@@ -181,12 +176,16 @@ export class PathCard extends Tile {
     this.rule = new PathRule(rs)
     this.descr = this.addDescr(rs.d ?? rs.id)
     this.addChild(this.descr);
+    this.cost = rs.c;
+    const cText = new CenterText(rs.c > 0 ? `${ rs.c}` : '', this.radius * .35)
+    cText.x = -this.radius * .6; cText.y = this.radius * .9;
+    this.addChild(cText)
     PathCard.cardByName.set(id, this);
     this.homeHex = PathCard.discard.hex; // unitCollision will stack if necessary.
   }
 
   addDescr(text: string) {
-    const size = TP.hexRad * .35, descr = new CenterText(text, size)
+    const size = this.radius * .35, descr = new CenterText(text, size)
     const { x, y, width, height } = this.getBounds()
     descr.y = y + size;
     // descr.textBaseline = 'top'
@@ -205,17 +204,31 @@ export class PathCard extends Tile {
     table.cardPanel.cardRack.forEach(setLegal);
     setLegal(PathCard.discard.hex as Hex2)
   }
-  override isLegalTarget(toHex: Hex2, ctx?: DragContext): boolean {
+  override isLegalTarget(toHex: Hex2, ctx: DragContext): boolean {
+    if (ctx.lastCtrl) return true;
+    const gameState = ctx.gameState as GameState, plyr = gameState.curPlayer;
+    const tableRack = gameState.table.cardPanel.cardRack;
+    const fromTable = tableRack.includes(this.fromHex as Hex2);
+    if (fromTable) return false;
+
+    const toRackHex = plyr.cardRack.includes(toHex);
+    const cardDone = gameState?.cardDone;
+    if (cardDone) {
+      return toRackHex ? true : false;
+    }
+    // from: [cardRack, cardDeck, discards] -> [discards, cardRack, tableRack[0], ]
     if (toHex.Aname == 'discards') return true;
-    const plyr = ctx?.gameState?.curPlayer as Player | undefined;
-    if (plyr?.cardRack.includes(toHex)) return true;
-    if (plyr?.gamePlay.table.cardPanel.cardRack[0] == (toHex)) return true;
+    if (toRackHex) return true;
+    if (tableRack[0] == toHex) return true;
     return false;
   }
   override dragStart(ctx: DragContext): void {
     super.dragStart(ctx);
-    if (this.fromHex === PathCard.source.hex)
-      this.fromHex = PathCard.discard.hex as Hex2;
+  }
+
+  override showTargetMark(hex: IHex2 | undefined, ctx: DragContext): void {
+    if (ctx.targetHex == PathCard.source.hex) ctx.targetHex = PathCard.discard.hex as Hex2
+    super.showTargetMark(hex, ctx)
   }
 
   override dropFunc(targetHex: IHex2, ctx: DragContext): void {
@@ -261,15 +274,15 @@ export class PathCard extends Tile {
     }
   }
 
-  static cardBack: CardBack;
   static cardByName: Map<string,PathCard> = new Map();
   static makeAllCards(table: Table, ...prgs: PRgen[]) {
     CardHex.allCardHex.length = 0; // clear before we make all the new ones.
 
-    table.makeSourceAtRowCol(PathCard.makeSource, 'discards', 3.5, 1, .3, CardHex)
+    const r = 1.2
+    table.makeSourceAtRowCol(PathCard.makeSource, 'discards', r + 2.5, 1, .3, CardHex)
     PathCard.discard = PathCard.source;
     ;(PathCard.discard as any as NamedContainer).Aname = 'PathCardDiscard';
-    table.makeSourceAtRowCol(PathCard.makeSource, 'cardDeck', 1.0, 1, .3, CardHex)
+    table.makeSourceAtRowCol(PathCard.makeSource, 'cardDeck', r + 0.0, 1, .3, CardHex)
 
     if (prgs.length === 0) prgs = [new PRgen()];
     PathCard.cardByName.clear();
@@ -280,7 +293,7 @@ export class PathCard extends Tile {
     PathCard.cardByName.forEach(card => PathCard.discard.availUnit(card));
     this.reshuffle()
 
-    const cardback = PathCard.cardBack = new CardBack(table); // it a Button, mostly.
+    const cardback = table.cardBack = new CardBack(table); // it a Button, mostly.
     cardback.moveTo(PathCard.source.hex); // set position above source.hex
     cardback.moveTo(undefined);
     cardback.on(S.click, (evt) => cardback.clicked(evt), cardback )
@@ -312,9 +325,17 @@ export class PathCard extends Tile {
  * just sits on PathCard.source.hex; acts as a button
  */
 export class CardBack extends PathCard {
+  static bColor = 'lightgreen'
+  static oText = 'click\nto\ndraw';
+  static nText = '\n';
+  dim(dim = true) {
+    this.descr.text = dim ? CardBack.nText : CardBack.oText;
+    this.stage?.update()
+  }
+
   constructor(public table: Table) {
-    super({ id: 'cardback', c: 0, d: 'click\nto\ndraw' })
-    this.baseShape.paint('lightgreen')
+    super({ id: 'cardback', c: 0, d: CardBack.oText })
+    this.baseShape.paint(CardBack.bColor)
   }
   // makeDragable(), but do not let it actually drag:
   override isDragable(ctx?: DragContext): boolean {
@@ -388,10 +409,16 @@ export class CardPanel extends NamedContainer {
     super(`CardPanel`)
     const { dxdc, dydr } = table.hexMap.xywh
     const w = dxdc * wide, h = dydr * high;
-    const disp = new RectShape({ w, h }, C.grey224, '');
+    const disp = this.disp = new RectShape({ w, h }, C.grey224, '');
     this.addChild(disp)
     table.hexMap.mapCont.hexCont.addChild(this);
     this.table.setToRowCol(this, row, col);
+  }
+
+  disp!: RectShape;
+
+  paint(colorn: string, force?: boolean): Graphics {
+    return this.disp.paint(colorn, force)
   }
 
   /** fill hexAry with row of CardHex above panel */
@@ -422,6 +449,8 @@ export class CardPanel extends NamedContainer {
       hex.legalMark.y += dy;
       hex.x += dx;
       hex.y += dy;
+      if (hex.tile) { hex.tile.x += dx; hex.tile.y += dy }
+      if (hex.meep) { hex.meep.x += dx; hex.meep.y += dy }
       hex.tile?.moveTo(hex); // trigger repaint/update?
     })
   }

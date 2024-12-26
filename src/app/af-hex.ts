@@ -1,4 +1,4 @@
-import { Random, rotateAry, stime } from "@thegraid/common-lib"
+import { Random, rotateAry, stime, type Constructor } from "@thegraid/common-lib"
 import { NamedContainer, type NamedObject } from "@thegraid/easeljs-lib"
 import { Shape } from "@thegraid/easeljs-module"
 import { H, Hex, HexDir, type EwDir, type NsDir } from "@thegraid/hexlib"
@@ -88,6 +88,7 @@ export type AfKey = typeof AfHex.afKeys[number];
  * the arrays are rotated as the AfHex is rotated.
  */
 export class AfHex extends NamedContainer implements Record<AfKey, string[]> {
+  static afMark: Constructor<AfMark> = AfMark;
   static afKeys = ['aShapes', 'aColors', 'aFills'] as const;
   /** @deprecated advisory - for debug/analysis */
   get rot() { return Math.round(this.rotation / 60) }
@@ -109,7 +110,7 @@ export class AfHex extends NamedContainer implements Record<AfKey, string[]> {
     // make AfMark(shape,color,fill0 for each of six sides
     this.afMarks = topoDirs.map((dir, ndx) => {
       const scf = AfHex.afKeys.map(key => this[key][ndx]) as SCF;
-      const afm = new AfMark(dir, ...scf);
+      const afm = new AfHex.afMark(dir, ...scf);
       return this.addChild(afm)
     })
     this._scf = this.afMarks.map(m => m.scf);

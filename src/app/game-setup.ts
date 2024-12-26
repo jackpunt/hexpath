@@ -12,6 +12,18 @@ export interface Scenario extends Scenario0 {
 
 };
 
+type PublicInterface<T> = { [K in keyof T]: T[K] };
+declare global {
+  interface Math {
+    sum(...ary: number[]): number;
+    // because 'Date' is not a class, it's tricky to define Date.stime
+    // but it's easy to attach it to Math:
+    stime: (typeof stime) & PublicInterface<typeof stime>;
+  }
+}
+Math.sum = (...ary: number[]) => ary.reduce((pv, cv) => pv + cv);
+Math.stime = stime; // can use Math.stime() in js/debugger
+
 /** initialize & reset & startup the application/game. */
 export class GameSetup extends GameSetupLib {
   declare table: PathTable;
@@ -19,7 +31,6 @@ export class GameSetup extends GameSetupLib {
   // allow qParams as opt arg:
   override initialize(canvasId: string, qParams = this.qParams): void {
     window.addEventListener('contextmenu', (evt: MouseEvent) => evt.preventDefault())
-    ;(Date as any)['stime'] = stime;  // entry point to find Date.stime
     // useEwTopo, size 7.
     const { host, port, file, nH } = qParams;
     TP.useEwTopo = true;

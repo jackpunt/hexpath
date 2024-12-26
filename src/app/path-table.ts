@@ -1,10 +1,10 @@
-import { stime } from "@thegraid/common-lib";
+import { C } from "@thegraid/common-lib";
 import type { DragInfo } from "@thegraid/easeljs-lib";
 import { Stage } from "@thegraid/easeljs-module";
 import { Hex2, Table, Tile, TileSource, TP, type DragContext, type IHex2 } from "@thegraid/hexlib";
 import type { GamePlay } from "./game-play";
 import type { Scenario } from "./game-setup";
-import { CardPanel, PathCard } from "./path-card";
+import { CardPanel, PathCard, type CardBack } from "./path-card";
 import { type HexMap2 } from "./path-hex";
 import { PathTile } from "./path-tile";
 
@@ -55,33 +55,37 @@ export class PathTable extends Table {
     return;
   }
 
+  cardBack!: CardBack;
   cardPanel!: CardPanel;
   addCardPanel() {
     const np = 6, pindex = np; // in slot 1 (left-center)
     const [row, col, dir] = this.panelLoc(pindex, np);
     const high = 4.133, wide = 4.5; // aligned with PlayerPanel
     const cardPanel = this.cardPanel = new CardPanel(this, high, wide, row - high / 2, col - wide / 2)
+    cardPanel.paint(C.nameToRgbaString(C.grey128, .4))
     cardPanel.fillAryWithCardHex(this, cardPanel, cardPanel.cardRack, 1, 3)
     cardPanel.makeDragable(this)
+    // interesting: cardPanel is in the display list, and is mouse sensitive,
+    // but does not get painted:
+    // hexCont is cached; so cardPanel does not get painted until hexCont.reCache
+    // But cardPanel can be clicked and moved to dragCont where it is visible.
   }
 
   /**
    * last action of curPlayer is to draw their next tile.
    */
   override addDoneButton() {
-    const rv = super.addDoneButton(undefined, 500, 240); // table.doneButton('Done')
-    this.doneClick0 = this.doneClicked; // override
-    this.doneClicked = (ev) => {
-      this.playerDone(ev);
+    const rv = super.addDoneButton(undefined, 0, 0); // table.doneButton('Done')
+    this.setToRowCol(this.doneButton, 1.2 + 1.25, 1); // between cardDeck & discards
+    this.orig_doneClick = this.orig_doneClick ?? this.doneClicked; // override
+    this.doneClicked = (evt) => {
+      this.gamePlay.playerDone();
+      this.orig_doneClick(evt);          // this.gamePlay.phaseDone();
     };
     this.doneButton.activate(true)
     return rv;
   }
-  doneClick0 = this.doneClicked;
-  playerDone(evt: any) {
-    this.gamePlay.playerDone();
-    this.doneClick0(evt);          // this.gamePlay.phaseDone();
-  }
+  orig_doneClick!: (evt?: any) => void;
 
   override panelLocsForNp(np: number): number[] {
     return [[], [0], [0, 2], [0, 3, 2], [0, 3, 5, 2], [0, 3, 4, 5, 2], [0, 3, 4, 5, 2, 1]][np];
