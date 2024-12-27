@@ -42,6 +42,7 @@ export class PathTile extends MapTile {
     PathTile.allPathTiles.length = 0;
   }
 
+  static curTable: PathTable;
   static source: TileSource<PathTile>;
 
   // make a source for the given PathTile[]
@@ -104,11 +105,15 @@ export class PathTile extends MapTile {
 
   /** afhex.rotate() */
   rotate(rot = 1) {
-    this.afhex.rotate(rot)
+    return this.afhex.rotate(rot)
   }
 
   /**
    * Evaluate rules for this tile at given Hex, for each value of rotation = 0..5;
+   *
+   * For each rotation: rules.map --> fails ? -1 : sum(rule.value)
+   *
+   * Note: original rotation is restored after evaluation
    * @param toHex
    * @param rules rules that can/must be satisfied; each giving a value
    * @return total_value[] for each rotation. (a value is -1 if toHex w/rotation is prohibited)
@@ -116,53 +121,67 @@ export class PathTile extends MapTile {
   ruleValuesOnHex(toHex: Hex1, ...rules: PathRule[]) {
     const rotated = this.rotated;
     const valueAtRotation = Hdirs.map((dir, n) => {
-      return this.ruleValueAtRotation(n, toHex, ...rules)
+      const values = this.ruleValueAtRotation(n, toHex, ...rules)
+      const fails = values.filter(v => v < 0).length > 0; // if any rule failed
+      return fails ? -1 : Math.sum(...values.filter(v => v >= 0));
     })
     this.rotated = rotated;
     return valueAtRotation;
   }
 
-  /** rules.map --> [-1 | sum(rule.value)] */
-  ruleValueAtRotation(n: number, toHex: Hex1, ...rules: PathRule[]) {
-    this.rotated = n; // set ABSOLUTE rotation of afhex relative to ORGINAL spec
-    const values = rules.map(rule => rule.value(this, toHex)); // [rv(0), rv(1),rv(3)] for each rule
-    const fails = values.filter(v => v < 0).length > 0; // if any rule failed
-    const rv = fails ? -1 : values.filter(v => v >= 0).reduce((pv, cv) => pv + cv, 0);
-    return rv; // rules=[] --> rv = 0;
+  /** rule.value() at given rotation, for each rule */
+  ruleValueAtRotation(rot: number, toHex: Hex1, ...rules: PathRule[]) {
+    this.rotated = rot; // set ABSOLUTE rotation of afhex relative to ORGINAL spec
+    return rules.map(rule => rule.value(this, toHex)); // [rv(0), rv(1),rv(3)] for each rule
   }
 
   rulesFromCtx (ctx?: DragContext) {
-    return (ctx?.gameState as GameState | undefined)?.table?.cardPanel.rules ?? [];
+    PathTile.curTable = (ctx?.gameState as GameState).table; // retain to find rules
+    return PathTile.curTable.cardPanel.rules ?? [];
+  }
+  rulesFromTable(table = PathTile.curTable) {
+    return table.cardPanel.rules ?? [];
+  }
+
+  showRuleValues(rot: number, hex: Hex2) {
+    // re-evaluate all rules for this rotation on hex (to get each rule contribution)
+    // setting card.ruleValueAtRot
+    const rules = this.rulesFromTable();
+    const rvar = this.ruleValueAtRotation(rot, hex, ...rules);
+    rules.forEach((rule, n) => rule.card.value = rvar[n])
   }
 
   maxValueOnHex(toHex: Hex1, ctx?: DragContext) {
     const rules = this.rulesFromCtx(ctx); // may be []
     const values = this.ruleValuesOnHex(toHex, ...rules); // [v(r=0), v(r=1), ..., v(r=5)]
     if (toHex.isOnMap && ctx?.lastShift == true) {
-      values.splice(0, values.length, ...values.map(v => Math.max(v, 0)))
+      values.splice(0, values.length, ...values.map(v => Math.max(v, 0))) // c/-1/0/g
     } else if (!toHex.isOnMap) { // tileRack always legal, maxV = 0
-      values.splice(0, values.length, ...values.map(v => 0))
+      values.splice(0, values.length, ...values.map(v => 0)) // c/*/0/g
     }
     const mark = (toHex as Hex2).legalMark;
     mark.valuesAtRot = values; // sets maxV & label.text
+    rules.map(rule => rule.card.ruleValueAtRot[this.rotated])
     return mark.maxV;
   }
 
-  rotateNext(rot = 0, hex = this.targetHex) {
-    this.rotate(rot)
-    this.updateCache();
-    this.placeValue = hex.legalMark.valuesAtRot[this.rotated]; // if (value === '-1') drop --> fromHex
-    this.stage?.update()
+  /** keybinder rotation during drag; show valueAtRot[] */
+  rotateNext(drot = 0, hex = this.targetHex) {
+    const rot = this.rotate(drot)
+    this.placeValue = hex.legalMark.valuesAtRot[rot]; // if (placeValue === '-1') drop --> fromHex
+    this.showRuleValues(rot, hex);
+    this.stage?.update(); // tile is not cached?
   }
 
+  /** auto-rotate during drag; valueAtRot[] == maxV */
   rotateToMax(hex = this.targetHex) {
     const maxV = hex.legalMark.maxV, rot = this.rotated;
     const values = hex.legalMark.valuesAtRot;
     if (!values) return; // back to bag...
-    const values2 = values.concat(values); // ndx in range: [0..12)
-    const ndx = values2.findIndex((v, n) => (n > rot) && (v == maxV)); // next rotated that matches maxV
-    this.rotated = ndx;
-    this.placeValue = maxV;
+    const values12 = values.concat(values); // ndx in range: [0..12)
+    this.rotated = values12.findIndex((v, n) => (n > rot) && (v == maxV)); // next rotated that matches maxV
+    this.placeValue = hex.legalMark.valuesAtRot[this.rotated];
+    this.showRuleValues(this.rotated, hex)
     this.stage?.update()
     return maxV;
   }
@@ -185,9 +204,13 @@ export class PathTile extends MapTile {
   /** max of maxV found during markLegal->isLegalTarget */
   maxV = 0;
   // TODO: consider RuleCards & rotation.
-  override isLegalTarget(toHex: Hex1, ctx?: DragContext): boolean {
+  override isLegalTarget(toHex: Hex1, ctx: DragContext): boolean {
     const hex2 = toHex as Hex2;
     if (hex2.isOnMap && !!toHex.tile) return false;
+    if (ctx.lastCtrl) return true;
+    const gameState = ctx.gameState as GameState, plyr = gameState.curPlayer;
+    if (plyr.cardRack.includes(hex2)) return true;
+
     const maxV = this.maxValueOnHex(hex2, ctx)
     this.maxV = Math.max(maxV, this.maxV);
     return (maxV >= 0)
@@ -202,10 +225,10 @@ export class PathTile extends MapTile {
     if (ctx.targetHex === this.targetHex) return;
     this.targetHex = ctx.targetHex as Hex2;
     if (this.targetHex.isLegal) {
-       if (this.targetHex.legalMark.maxV > 0)
+      if (this.targetHex.legalMark.maxV > 0)
         this.rotateToMax(hex2); // placeValue = maxV
       else
-         this.rotateNext(0, hex2);
+        this.rotateNext(0, hex2); // placeValue @ current rotation
     } else {
       this.placeValue = -1;
     }
@@ -236,6 +259,8 @@ export class PathTile extends MapTile {
       }, 1);
     }
   }
+
+  /** when tile is placed on map, credit player with value of placement. */
   override placeTile(toHex?: Hex1, payCost?: boolean): void {
     const mark = (toHex as Hex2).legalMark;
     const value = this.placeValue;

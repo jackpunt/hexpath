@@ -33,7 +33,7 @@ export class PathRule implements NamedObject {
   cost = 0; // purchase or placement cost, also base value
   type = 'edge';
 
-  constructor(ps: RuleSpec) {
+  constructor(public card: PathCard, ps: RuleSpec) {
     this.Aname = ps.id;
     this.text = ps.d ?? ps.id;
     this.cost = ps.c;
@@ -64,7 +64,9 @@ export class PathRule implements NamedObject {
    * @return \<0 if bad placement, else (valuef * cost) >= 0
    */
   value(tile: PathTile, hex: Hex1) {
-    return this.valuef(tile, hex) * this.cost;
+    const v = this.valuef(tile, hex) * this.cost;
+    this.card.ruleValueAtRot[tile.rotated] = v;
+    return v
   }
 }
 
@@ -146,8 +148,8 @@ class PRgen {
     { id: 'colors', c: 1, vf: (t, h) => this.vfunc_match_scf(1, t, h), d: 'all colors match' },
     { id: 'fills', c: 1, vf: (t, h) => this.vfunc_match_scf(2, t, h), d: 'all fills match' },
     // own
-    { id: 'line3', c: 1, vf: (t, h) => this.vfunc_make_line(3, t, h), d: '-own-\nline of 3' },
-    { id: 'fill-in', c: 1, vf: (t, h) => this.vfunc_fill_in(2, t, h), d: '-own-\nfill-in gap' },
+    { id: 'line3', c: 2, vf: (t, h) => this.vfunc_make_line(3, t, h), d: '-own-\nline of 3' },
+    { id: 'fill-in', c: 2, vf: (t, h) => this.vfunc_fill_in(2, t, h), d: '-own-\nfill-in gap' },
   ]
   // edge rules:
   // 3 shapes, 2-3 colors, 2 fills
@@ -165,32 +167,52 @@ export class PathCard extends Tile {
   declare baseShape: RectWithDisp; // makeShape()
   declare gamePlay: GamePlay;
   rule!: PathRule
-  descr: CenterText
-  cost = 1;
+  dText!: CenterText       // set once: rs.d ?? rs.id
+
+  cost!: number;           // set once: rs.c
+  cText!: CenterText
+
+  _value!: number;         // set per tile placement
+  vText!: CenterText
+  /** value of rule @ current rotation OR maxV */
+  get value() { return this._value; }
+  set value(v) {
+    this._value = v;
+    this.vText.text = `${v >= 0 ? v : 0}`
+    this.vText.color = v >= 0 ? C.BLACK : C.RED;
+  }
+  /** value of this.rule at each HexDir for latest PathTile evaluation */
+  ruleValueAtRot: number[] = [];
 
   // Tile { baseShape: RectShape , nameText, descr }
   constructor(rs: RuleSpec) {
     let id = rs.id, n = 1;
     while (PathCard.cardByName.has(id)) { id = `${rs.id}#${++n}` }
     super(id)           // Note: may need to tweak cache/reCache algo
-    this.rule = new PathRule(rs)
-    this.descr = this.addDescr(rs.d ?? rs.id)
-    this.addChild(this.descr);
-    this.cost = rs.c;
-    const cText = new CenterText(rs.c > 0 ? `${ rs.c}` : '', this.radius * .35)
-    cText.x = -this.radius * .6; cText.y = this.radius * .9;
-    this.addChild(cText)
+    this.rule = new PathRule(this, rs)
+    this.addChildren(rs)
     PathCard.cardByName.set(id, this);
     this.homeHex = PathCard.discard.hex; // unitCollision will stack if necessary.
   }
 
-  addDescr(text: string) {
-    const size = this.radius * .35, descr = new CenterText(text, size)
+  // descr=rs.d, cost=rs.c, value=-1
+  addChildren(rs: RuleSpec) {
+    const dSize = this.radius * .35
+    const dText = this.dText = new CenterText(rs.d ?? rs.id, dSize)
     const { x, y, width, height } = this.getBounds()
-    descr.y = y + size;
-    // descr.textBaseline = 'top'
-    descr.lineWidth = width * .9
-    return descr
+    dText.y = y + dSize;             // descr.textBaseline = 'top'
+    dText.lineWidth = width * .9
+    this.addChild(dText)
+
+    this.cost = rs.c;
+    const cText = this.cText = new CenterText(rs.c > 0 ? `${rs.c}` : '', dSize);
+    cText.x = -this.radius * .6; cText.y = this.radius * .9;
+    this.addChild(cText);
+
+    const vText = this.vText = new CenterText('', dSize)
+    vText.x = +this.radius * .6; vText.y = this.radius * .9;
+    this.addChild(vText)
+    this.value = -1;
   }
 
   override makeShape(): Paintable {
@@ -223,6 +245,7 @@ export class PathCard extends Tile {
     return false;
   }
   override dragStart(ctx: DragContext): void {
+    // TODO: decrement player.coins if this.isOnMap && enforce ctx.lastShift!
     super.dragStart(ctx);
   }
 
@@ -329,7 +352,7 @@ export class CardBack extends PathCard {
   static oText = 'click\nto\ndraw';
   static nText = '\n';
   dim(dim = true) {
-    this.descr.text = dim ? CardBack.nText : CardBack.oText;
+    this.dText.text = dim ? CardBack.nText : CardBack.oText;
     this.stage?.update()
   }
 

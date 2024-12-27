@@ -21,7 +21,7 @@ declare global {
     stime: (typeof stime) & PublicInterface<typeof stime>;
   }
 }
-Math.sum = (...ary: number[]) => ary.reduce((pv, cv) => pv + cv);
+Math.sum = (...ary: number[]) => ary.reduce((pv, cv) => pv + cv, 0);
 Math.stime = stime; // can use Math.stime() in js/debugger
 
 /** initialize & reset & startup the application/game. */

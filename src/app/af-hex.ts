@@ -148,6 +148,7 @@ export class AfHex extends NamedContainer implements Record<AfKey, string[]> {
     this._rotated = (this._rotated + rotn) % 6;
     this.rotation = 60 * this._rotated; // degrees, not radians
     this._scf = rotateAry(this._scf, rotn)
+    return this._rotated;
   }
 
   /** return [shape, color, fill] of indicated edge */
