@@ -10,6 +10,7 @@ import { type PathTable as Table } from "./path-table";
 import type { PathTile } from "./path-tile";
 import type { Player } from "./player";
 import { TP } from "./table-params";
+import type { CountClaz } from "./tile-exporter";
 
 
 // TODO: define rectange 'Tiles' to hold the Rule/Constraint/Bonus items.
@@ -297,6 +298,11 @@ export class PathCard extends Tile {
     }
   }
 
+  /** how many of which Claz to construct & print */
+  static countClaz(n = 2) {
+    const prgs = [new PRgen()]; // all the rule specs
+    return prgs.map(rs => [n, PathCard, rs] as CountClaz);
+  }
   static cardByName: Map<string,PathCard> = new Map();
   static makeAllCards(table: Table, ...prgs: PRgen[]) {
     CardHex.allCardHex.length = 0; // clear before we make all the new ones.
