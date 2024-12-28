@@ -6,6 +6,7 @@ import { PathHex as Hex1, PathHex2 as Hex2, HexMap2 } from './path-hex';
 import { PathTable } from './path-table';
 import { PathTile } from './path-tile';
 import { Player } from './player';
+import { TileExporter } from './tile-exporter';
 
 // type Params = {[key: string]: any;}; // until hexlib supplies
 export interface Scenario extends Scenario0 {
@@ -45,6 +46,8 @@ export class GameSetup extends GameSetupLib {
 
     return;
   }
+
+  tileExporter = new TileExporter(); // enable 'Make Pages' buttons
 
   update() {
     const hexCont = this.hexMap.mapCont?.hexCont;

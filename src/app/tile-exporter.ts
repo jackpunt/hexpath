@@ -1,10 +1,10 @@
 import { C, Constructor, stime } from "@thegraid/common-lib";
-import { CircleShape, PaintableShape } from "@thegraid/easeljs-lib";
-import { Container, DisplayObject } from "@thegraid/easeljs-module";
-import { H, HexShape, TileShape } from "@thegraid/hexlib";
-import { ImageGrid, PageSpec } from "./image-grid";
-import { Player } from "./player";
+import { CircleShape, PaintableShape, type Paintable as PaintableLib } from "@thegraid/easeljs-lib";
+import { Container, DisplayObject, type Graphics } from "@thegraid/easeljs-module";
+import { H, Tile as TileLib, TileShape } from "@thegraid/hexlib";
+import { ImageGrid, PageSpec, type GridSpec } from "./image-grid";
 import { PathCard } from "./path-card";
+import { Player } from "./player";
 // end imports
 
 interface Tile extends DisplayObject {
@@ -26,48 +26,76 @@ export class TileExporter {
 
   makeImagePages() {
     const u = undefined, p0 = Player.allPlayers[0], p1 = Player.allPlayers[1];
-    const hexSingle = [ // [count, claz, ...constructorArgs]
+    const cardSingle = [
+      ...PathCard.countClaz()// [count, claz, ...constructorArgs]
+    ] as CountClaz[];
+    const hexSingle = [
     ] as CountClaz[];
     const hexDouble = [ // [count, claz, ...constructorArgs]
     ] as CountClaz[];
     const circDouble = [ // [count, class],
     ] as CountClaz[];
-    const ruleFront = PathCard.countClaz() as CountClaz[];
 
     const pageSpecs: PageSpec[] = [];
-    this.clazToTemplate(circDouble, ImageGrid.circDouble_0_79, pageSpecs);
-    this.clazToTemplate(ruleFront, ImageGrid.cardSingle_3_5, pageSpecs);
-    this.clazToTemplate(hexDouble, ImageGrid.hexDouble_1_19, pageSpecs);
-    this.clazToTemplate(hexDouble, ImageGrid.hexSingle_1_19, pageSpecs);
+    // this.clazToTemplate(circDouble, ImageGrid.circDouble_0_79, pageSpecs);
+    // this.clazToTemplate(ruleFront, ImageGrid.cardSingle_3_5, pageSpecs);
+    // this.clazToTemplate(hexDouble, ImageGrid.hexDouble_1_19, pageSpecs);
+    this.clazToTemplate(cardSingle, ImageGrid.cardSingle_3_5, pageSpecs);
+    this.clazToTemplate(hexSingle, ImageGrid.hexSingle_1_19, pageSpecs);
     return pageSpecs;
   }
 
+  setOrientation(card: Tile, gridSpec: GridSpec) {
+    const { width, height } = card.getBounds(), c_land = width > height;
+    const t_land = gridSpec.delx > gridSpec.dely;
+    if (c_land !== t_land) {
+      card.rotation = 90;
+      card.updateCache()
+    }
+  }
+
   /** compose bleed, background and Tile (Tile may be transparent, so white background over bleed) */
-  composeTile(claz: Constructor<Tile>, args: any[], player?: Player, edge: 'L' | 'R' | 'C' = 'C', addBleed = 28) {
+  composeTile(claz: Constructor<Tile>, args: any[], gridSpec: GridSpec, player?: Player, edge: 'L' | 'R' | 'C' = 'C') {
     const cont = new Container();
     if (claz) {
-      const tile = new claz(...args), base = tile.baseShape as PaintableShape;
-      tile.setPlayerAndPaint(player);
+      const tile = new claz(...args) as TileLib, base = tile.baseShape as PaintableShape;
+      this.setOrientation(tile, gridSpec);
+      // tile.setPlayerAndPaint(player);
+      // TileShape indicates a MapTile [mostly?]
       const backRad = (base instanceof TileShape) ? tile.radius * H.sqrt3_2 * (55 / 60) : 0;
       const back = new CircleShape(C.WHITE, backRad);
-      const bleed = new HexShape(tile.radius + addBleed); // .09 inch + 1px
+      // const bleed = new HexShape(tile.radius + addBleed); // .09 inch + 1px
+      const bleedShape = tile.makeShape(), bleed = gridSpec.bleed ?? 0;
+      bleedShape.rotation = tile.rotation;
       {
-        bleed.paint(base.colorn ?? C.grey, true);
-        // bleed.paint(C.lightpink, true);
-        // trim to fit template, allow extra on first/last column of row:
-        const dx0 = (edge === 'L') ? 30 : 0, dw = (edge === 'R') ? 30 : 0;
-        const { x, y, width, height } = base.getBounds(), d = -3;
-        bleed.setBounds(x, y, width, height);
-        bleed.cache(x - dx0, y - d, width + dx0 + dw, height + 2 * d);
+        const { x, y, width, height } = bleedShape.getBounds()
+        bleedShape.scaleX = (width + 2 * bleed) / width;
+        bleedShape.scaleY = (height + 2 * bleed) / height;
+        bleedShape.paint(base.colorn ?? C.grey, true);
       }
-      cont.addChild(bleed, back, tile);
+      {
+        const icg = (width: number, x0: number, ncol: number, cardw: number) => {
+          return (width - 2 * x0 - cardw * (ncol - 1)) / (ncol - 1)
+        };
+        const { width, height, x0, y0, ncol, nrow, delx, dely, cardw, cardh } = gridSpec;
+        const icgx = icg(width, x0, ncol, cardw ?? delx);  // OR cardw = base.getBounds().w
+        const icgy = icg(height, y0, nrow, cardh ?? dely); // but: double-sided is different
+      }
+      if (gridSpec.trimLCR) { // for hex shapes:
+        // trim bleedShape to base.bounds; allow extra on first/last column of row:
+        const dx0 = (edge === 'L') ? bleed : 0, dw = (edge === 'R') ? bleed : 0;
+        const { x, y, width, height } = base.getBounds(), dy = -3;
+        bleedShape.setBounds(x, y, width, height);
+        bleedShape.cache(x - dx0, y - dy, width + dx0 + dw, height + 2 * dy);
+      }
+      cont.addChild(bleedShape, back, tile);
     }
     return cont;
   }
 
   /** each PageSpec will identify the canvas that contains the Tile-Images */
   clazToTemplate(countClaz: CountClaz[], gridSpec = ImageGrid.hexDouble_1_19, pageSpecs: PageSpec[] = []) {
-    const both = true, double = gridSpec.double ?? true;
+    const both = false, double = gridSpec.double ?? true;
     const frontAry = [] as DisplayObject[][];
     const backAry = [] as (DisplayObject[] | undefined)[];
     const page = pageSpecs.length;
@@ -81,14 +109,14 @@ export class TileExporter {
         const n = nt % perPage, pagen = Math.floor(nt++ / perPage);
         const addBleed = (true || n > 3 && n < 32) ? undefined : -10; // for DEBUG: no bleed to see template positioning
         if (!frontAry[pagen]) frontAry[pagen] = [];
-        const col = n % ncol, edge = (col === 0) ? 'L' : (col === ncol - 1) ? 'R' : 'C';
-        const frontTile = this.composeTile(claz, args, frontPlayer, edge, addBleed);
+        const col = n % ncol, lcr = (col === 0) ? 'L' : (col === ncol - 1) ? 'R' : 'C';
+        const frontTile = this.composeTile(claz, args, gridSpec, frontPlayer, lcr);
         frontAry[pagen].push(frontTile);
         if (double) {
           const backAryPagen = backAry[pagen] ?? (backAry[pagen] = []) as (DisplayObject | undefined)[];
           let backTile = undefined;
           if (claz.rotateBack !== undefined) {
-            backTile = this.composeTile(claz, args, backPlayer, edge, addBleed);
+            backTile = this.composeTile(claz, args, gridSpec, backPlayer, lcr);
             const tile = backTile.getChildAt(2); // [bleed, back, tile]
             tile.rotation = claz.rotateBack;
           }

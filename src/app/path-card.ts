@@ -165,6 +165,7 @@ class PRgen {
 
 export class PathCard extends Tile {
   override get isMeep() { return true; }
+  override get radius() { return TP.hexRad * H.sqrt3 }
   declare baseShape: RectWithDisp; // makeShape()
   declare gamePlay: GamePlay;
   rule!: PathRule
@@ -198,26 +199,26 @@ export class PathCard extends Tile {
 
   // descr=rs.d, cost=rs.c, value=-1
   addChildren(rs: RuleSpec) {
-    const dSize = this.radius * .35
+    const rad = (this.radius * .9), ytop = -rad * (2.5 / 3.5);
+    const dSize = rad * .25
     const dText = this.dText = new CenterText(rs.d ?? rs.id, dSize)
-    const { x, y, width, height } = this.getBounds()
-    dText.y = y + dSize;             // descr.textBaseline = 'top'
-    dText.lineWidth = width * .9
+    dText.y = ytop + dSize * .6; // OR descr.textBaseline = 'top'
+    dText.lineWidth = rad
     this.addChild(dText)
 
     this.cost = rs.c;
     const cText = this.cText = new CenterText(rs.c > 0 ? `${rs.c}` : '', dSize);
-    cText.x = -this.radius * .6; cText.y = this.radius * .9;
+    cText.x = -rad * .35; cText.y = rad * .6;
     this.addChild(cText);
 
     const vText = this.vText = new CenterText('', dSize)
-    vText.x = +this.radius * .6; vText.y = this.radius * .9;
+    vText.x = +rad * .35; vText.y = rad * .6;
     this.addChild(vText)
     this.value = -1;
   }
 
   override makeShape(): Paintable {
-    return new CardShape('lavender');
+    return new CardShape('lavender', '', this.radius);
   }
   override reCache(scale?: number): void {
     super.reCache(0); // no cache?
@@ -300,8 +301,8 @@ export class PathCard extends Tile {
 
   /** how many of which Claz to construct & print */
   static countClaz(n = 2) {
-    const prgs = [new PRgen()]; // all the rule specs
-    return prgs.map(rs => [n, PathCard, rs] as CountClaz);
+    const rules = new PRgen().ruleSpecs;
+    return rules.map(rs => [n, PathCardBig, rs] as CountClaz)
   }
   static cardByName: Map<string,PathCard> = new Map();
   static makeAllCards(table: Table, ...prgs: PRgen[]) {
@@ -347,6 +348,20 @@ export class PathCard extends Tile {
     const src = PathCard.makeSource0(TileSource<PathCard>, PathCard, hex);
     ;(src as any as NamedContainer).Aname = `${src.hex.Aname}Source`;
     return src;
+  }
+}
+
+export class PathCardBig extends PathCard {
+  static _radius = 750 // @ 300dpi = 2.5" portrait-width
+  override get radius() { return PathCardBig._radius;}
+
+  constructor(rs: RuleSpec, size = 750) {
+    PathCardBig._radius = size
+    super(rs)
+    this.vText.visible = false
+  }
+  override makeShape(): Paintable {
+    return new CardShape('lavender', '', this.radius);
   }
 }
 

@@ -8,14 +8,15 @@ export type GridSpec = {
   height: number, // canvas size
   nrow: number,
   ncol: number,
-  y0?: number,
-  x0?: number,    // even numbered line indent
+  y0: number,
+  x0: number,    // even numbered line indent
   x1?: number,    // odd numbered line indent (x1 ?? x0)
-  delx?: number,
-  dely?: number,
-  cardw?: number,
+  delx: number,
+  dely: number,
+  cardw?: number, // cut size; also establishes rotation (portrait/landscape)
   cardh?: number,
-  bleed?: number,
+  bleed?: number, // ~(delx - cardw + interCardGap) icg = (width - 2*x0 -ncol*cardw)/(ncol-1)
+  trimLCR?: boolean,
   dpi?: number,   // multiply [x0, y0, delx, dely] to get pixels; default: 1 (already in pixels)
   double?:boolean,
 }
@@ -42,8 +43,8 @@ export class ImageGrid {
   /** 5 rows of 7 columns */
   static hexSingle_1_19: GridSpec = {
     width: 3300, height: 2550, nrow: 5, ncol: 7,
-    x0: 576, y0: 450,
-    delx: 357, dely: 413,
+    x0: 576, y0: 451,
+    delx: 357, dely: 413.1, bleed: 27, trimLCR: true,
     dpi: 1,
   }
 
@@ -52,7 +53,7 @@ export class ImageGrid {
     width: 3300, height: 5100, nrow: 5, ncol: 7,
     x0: 576, y0: 451,        // 245 + 412/2 = 451  (5099 - 245 = 4854) !~== 4854
     delx: 357, dely: 413.1,  // 1.19*300=357; 357/H.sqrt_3_2 = 412.2 === (2308 - 247)/5 == 2061 = 412.2
-    dpi: 1,
+    dpi: 1, double: false,
   }
 
   /** 8 rows of 8 columns */
