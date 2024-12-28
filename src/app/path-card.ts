@@ -164,8 +164,10 @@ class PRgen {
 }
 
 export class PathCard extends Tile {
+  static nextRadius = TP.hexRad * H.sqrt3; // out-of-scope parameter
+  _radius = PathCard.nextRadius;
+  override get radius() { return this._radius }
   override get isMeep() { return true; }
-  override get radius() { return TP.hexRad * H.sqrt3 }
   declare baseShape: RectWithDisp; // makeShape()
   declare gamePlay: GamePlay;
   rule!: PathRule
@@ -174,12 +176,14 @@ export class PathCard extends Tile {
   cost!: number;           // set once: rs.c
   cText!: CenterText
 
-  _value!: number;         // set per tile placement
+  _value?: number;         // set per tile placement
   vText!: CenterText
   /** value of rule @ current rotation OR maxV */
   get value() { return this._value; }
   set value(v) {
     this._value = v;
+    this.vText.visible = (v !== undefined);
+    if (v === undefined) v = -1;
     this.vText.text = `${v >= 0 ? v : 0}`
     this.vText.color = v >= 0 ? C.BLACK : C.RED;
   }
@@ -187,14 +191,18 @@ export class PathCard extends Tile {
   ruleValueAtRot: number[] = [];
 
   // Tile { baseShape: RectShape , nameText, descr }
-  constructor(rs: RuleSpec) {
-    let id = rs.id, n = 1;
-    while (PathCard.cardByName.has(id)) { id = `${rs.id}#${++n}` }
-    super(id)           // Note: may need to tweak cache/reCache algo
+  constructor(rs: RuleSpec, size?: number) {
+    if (size !== undefined) PathCard.nextRadius = size;
+    super(PathCard.uniqueId(rs.id))      // Note: may need to tweak cache/reCache algo
     this.rule = new PathRule(this, rs)
     this.addChildren(rs)
-    PathCard.cardByName.set(id, this);
+    PathCard.cardByName.set(this.Aname, this);
     this.homeHex = PathCard.discard.hex; // unitCollision will stack if necessary.
+  }
+
+  // invoked by constructor.super()
+  override makeShape(): Paintable {
+    return new CardShape('lavender', '', this.radius);
   }
 
   // descr=rs.d, cost=rs.c, value=-1
@@ -214,11 +222,6 @@ export class PathCard extends Tile {
     const vText = this.vText = new CenterText('', dSize)
     vText.x = +rad * .35; vText.y = rad * .6;
     this.addChild(vText)
-    this.value = -1;
-  }
-
-  override makeShape(): Paintable {
-    return new CardShape('lavender', '', this.radius);
   }
   override reCache(scale?: number): void {
     super.reCache(0); // no cache?
@@ -274,6 +277,11 @@ export class PathCard extends Tile {
     }
   }
 
+  override moveTo(hex: Hex1 | undefined): void {
+    super.moveTo(hex)
+    if (hex?.Aname === 'discards') this.value = undefined;
+  }
+
   /** hex contains card, which needs to be moved: */
   moveCard(hex: Hex2, card: PathCard, ctx: DragContext) {
     // if hex is 'discards' --> let unitCollision stack them
@@ -302,9 +310,14 @@ export class PathCard extends Tile {
   /** how many of which Claz to construct & print */
   static countClaz(n = 2) {
     const rules = new PRgen().ruleSpecs;
-    return rules.map(rs => [n, PathCardBig, rs] as CountClaz)
+    return rules.map(rs => [n, PathCard, rs, 750] as CountClaz)
   }
   static cardByName: Map<string,PathCard> = new Map();
+  static uniqueId(rsid: string) {
+    let id = rsid, n = 1;
+    while (PathCard.cardByName.has(id)) { id = `${rsid}#${++n}` }
+    return id;
+  }
   static makeAllCards(table: Table, ...prgs: PRgen[]) {
     CardHex.allCardHex.length = 0; // clear before we make all the new ones.
 
@@ -324,7 +337,7 @@ export class PathCard extends Tile {
     this.reshuffle()
 
     const cardback = table.cardBack = new CardBack(table); // it a Button, mostly.
-    cardback.moveTo(PathCard.source.hex); // set position above source.hex
+    cardback.moveTo(PathCard.source.hex as Hex1); // set position above source.hex
     cardback.moveTo(undefined);
     cardback.on(S.click, (evt) => cardback.clicked(evt), cardback )
   }
@@ -348,20 +361,6 @@ export class PathCard extends Tile {
     const src = PathCard.makeSource0(TileSource<PathCard>, PathCard, hex);
     ;(src as any as NamedContainer).Aname = `${src.hex.Aname}Source`;
     return src;
-  }
-}
-
-export class PathCardBig extends PathCard {
-  static _radius = 750 // @ 300dpi = 2.5" portrait-width
-  override get radius() { return PathCardBig._radius;}
-
-  constructor(rs: RuleSpec, size = 750) {
-    PathCardBig._radius = size
-    super(rs)
-    this.vText.visible = false
-  }
-  override makeShape(): Paintable {
-    return new CardShape('lavender', '', this.radius);
   }
 }
 

@@ -146,9 +146,9 @@ export class PathTile extends MapTile {
   showRuleValues(rot: number, hex: Hex2) {
     // re-evaluate all rules for this rotation on hex (to get each rule contribution)
     // setting card.ruleValueAtRot
-    const rules = this.rulesFromTable();
+    const rules = this.rulesFromTable(), isLegal = hex.isLegal;
     const rvar = this.ruleValueAtRotation(rot, hex, ...rules);
-    rules.forEach((rule, n) => rule.card.value = rvar[n])
+    rules.forEach((rule, n) => rule.card.value = isLegal ? rvar[n] : undefined)
   }
 
   maxValueOnHex(toHex: Hex1, ctx?: DragContext) {
@@ -230,6 +230,7 @@ export class PathTile extends MapTile {
       else
         this.rotateNext(0, hex2); // placeValue @ current rotation
     } else {
+      this.rotateNext(0, hex2); // placeValue @ current rotation
       this.placeValue = -1;
     }
     super.dragFunc(hex, ctx);
