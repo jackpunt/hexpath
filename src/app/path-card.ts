@@ -141,16 +141,18 @@ class PRgen {
 
   ruleSpecs: RuleSpec[] = [
     // each edge matches 2 (of the 3) factors:
-    { id: 'matches2', c: 1, vf: (t, h) => this.vfunc_matches_n(2, t, h), d: 'all joins 2+ matches' },
+    { id: 'matches2', c: 1, vf: (t, h) => this.vfunc_matches_n(2, t, h), d: 'All joins 2+ matches' },
     // at least 5 total matches:
     { id: 'match5', c: 1, vf: (t, h) => this.vfunc_match_sum(5, t, h), d: '5+ total matches' },
 
-    { id: 'shapes', c: 1, vf: (t, h) => this.vfunc_match_scf(0, t, h), d: 'all shapes match' },
-    { id: 'colors', c: 1, vf: (t, h) => this.vfunc_match_scf(1, t, h), d: 'all colors match' },
-    { id: 'fills', c: 1, vf: (t, h) => this.vfunc_match_scf(2, t, h), d: 'all fills match' },
+    { id: 'shapes', c: 1, vf: (t, h) => this.vfunc_match_scf(0, t, h), d: 'All shapes match' },
+    { id: 'colors', c: 1, vf: (t, h) => this.vfunc_match_scf(1, t, h), d: 'All colors match' },
+    { id: 'fills', c: 1, vf: (t, h) => this.vfunc_match_scf(2, t, h), d: 'All fills match' },
     // own
     { id: 'line3', c: 2, vf: (t, h) => this.vfunc_make_line(3, t, h), d: '-own-\nline of 3' },
     { id: 'fill-in', c: 2, vf: (t, h) => this.vfunc_fill_in(2, t, h), d: '-own-\nfill-in gap' },
+    // veto
+    { id: 'veto', c: 2, vf: (t, h) => 0, d: 'VETO\n---->' }
   ]
   // edge rules:
   // 3 shapes, 2-3 colors, 2 fills

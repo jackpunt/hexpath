@@ -132,7 +132,12 @@ export class PathTile extends MapTile {
   /** rule.value() at given rotation, for each rule */
   ruleValueAtRotation(rot: number, toHex: Hex1, ...rules: PathRule[]) {
     this.rotated = rot; // set ABSOLUTE rotation of afhex relative to ORGINAL spec
-    return rules.map(rule => rule.value(this, toHex)); // [rv(0), rv(1),rv(3)] for each rule
+    let veto_n = -1;
+    return rules.map((rule, n) => {
+      if (rule.Aname?.startsWith('veto')) { veto_n = n + 1 }
+      return (n == veto_n) ? 0 : rule.value(this, toHex)
+
+    }); // [rv(0), rv(1),rv(3)] for each rule
   }
 
   rulesFromCtx (ctx?: DragContext) {
@@ -146,9 +151,9 @@ export class PathTile extends MapTile {
   showRuleValues(rot: number, hex: Hex2) {
     // re-evaluate all rules for this rotation on hex (to get each rule contribution)
     // setting card.ruleValueAtRot
-    const rules = this.rulesFromTable(), isLegal = hex.isLegal;
+    const rules = this.rulesFromTable()
     const rvar = this.ruleValueAtRotation(rot, hex, ...rules);
-    rules.forEach((rule, n) => rule.card.value = isLegal ? rvar[n] : undefined)
+    rules.forEach((rule, n) => rule.card.value = rvar[n])
   }
 
   maxValueOnHex(toHex: Hex1, ctx?: DragContext) {
@@ -220,17 +225,18 @@ export class PathTile extends MapTile {
 
   // dragStart->markLegal; dragFunc
   override dragFunc(hex: IHex2 | undefined, ctx: DragContext): void {
-    const hex2 = hex as Hex2;
+    const hex2 = hex as Hex2, table = ctx.gameState.table;
+    const hex3 = table.hexUnderObj(this, false) as Hex2; // !legal
     if (ctx.info.first) this.setLegalColors();
-    if (ctx.targetHex === this.targetHex) return;
-    this.targetHex = ctx.targetHex as Hex2;
+    if (hex3 === this.targetHex) return;
+    this.targetHex = hex3 as Hex2;
     if (this.targetHex.isLegal) {
       if (this.targetHex.legalMark.maxV > 0)
         this.rotateToMax(hex2); // placeValue = maxV
       else
         this.rotateNext(0, hex2); // placeValue @ current rotation
     } else {
-      this.rotateNext(0, hex2); // placeValue @ current rotation
+      this.rotateNext(0, hex3); // placeValue @ current rotation
       this.placeValue = -1;
     }
     super.dragFunc(hex, ctx);
