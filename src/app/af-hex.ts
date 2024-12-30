@@ -1,13 +1,13 @@
-import { Random, rotateAry, stime, type Constructor } from "@thegraid/common-lib"
+import { C, Random, rotateAry, stime, type Constructor, type XY } from "@thegraid/common-lib"
 import { NamedContainer, type NamedObject } from "@thegraid/easeljs-lib"
-import { Shape } from "@thegraid/easeljs-module"
+import { Graphics, Point, Shape } from "@thegraid/easeljs-module"
 import { H, Hex, HexDir, type EwDir, type NsDir } from "@thegraid/hexlib"
 import { TP } from "./table-params"
 
 
-/** affinity in three dimensions: Shape(A,T,S), Color(R,G,B=orange), Fill(LINE, FILL) */
+/** affinity in three dimensions: Shape(A,T,S), Color(R,G,B), Fill(LINE, FILL) */
 export namespace AF {
-  export const A = 'a' // Arc
+  export const A = 'a' // Arc (semi-circle)
   export const T = 't' // Triangle
   export const S = 's' // Square (rectangle)
   export const R = 'r' // red
@@ -15,23 +15,33 @@ export namespace AF {
   export const B = 'b' // blue
   export const L = 'l' // LINE (hollow)
   export const F = 'f' // FILL (solid)
-  // set color name for each AfColor. sadly, we can't use: C.RED, C.GREEN, C.BLUE
-  export const colorn: Record<AfColor, string> = { r: 'RED', g: 'GREEN', b: 'ORANGE' } as const;
+
+  export type Colors = Record<AF.Color, string>;
+  export const colorn: Colors = { r: C.RED, g: C.GREEN, b: C.BLUE }
+  export function setColors(colors: Partial<Colors>) {
+    // Object.keys.forEach loses track that each key that is present IS present.
+    // So we have to reassure typescript that colors[k] IS defined:
+    (Object.keys(colors) as AF.Color[]).forEach(k => (AF.colorn[k] = (colors as Colors)[k]))
+  }
+
+  const ATSaC = [AF.S, AF.T, AF.A] as const
+  export type Shape = typeof ATSaC[number];
+
+  const RGBaC = [AF.R, AF.G, AF.B] as const
+  export type Color = typeof RGBaC[number];
+
+  const FLaC = [AF.F, AF.L] as const
+  export type Fill = typeof FLaC[number];
+
+  /** Array with each AF.Shape */
+  export const ShapeA = ATSaC.concat();
+  /** Array with each AF.Color */
+  export const ColorA = RGBaC.concat();
+  /** Array with each AF.Fill */
+  export const FillA = FLaC.concat();
 }
-const ATSaC = [AF.S, AF.T, AF.A] as const
-export type AfShape = typeof ATSaC[number];
 
-const RGBaC = [AF.R, AF.G, AF.B] as const
-export type AfColor = typeof RGBaC[number];
-
-const FLaC = [AF.F, AF.L] as const
-export type AfFill = typeof FLaC[number];
-
-type SCF = [AfShape, AfColor, AfFill];
-
-export const ShapeA = ATSaC.concat();
-export const ColorA = RGBaC.concat();
-export const FillA = FLaC.concat();
+type SCF = [AF.Shape, AF.Color, AF.Fill];
 
 /** a Mark (one of six) on the edge of Hex2 to indicate affinity */
 class AfMark extends Shape implements NamedObject {
@@ -42,23 +52,22 @@ class AfMark extends Shape implements NamedObject {
    * - TP.afWide: [3] pixels of line width when AF.L
    * - TP.afSquare: [false] true to shrink depth to be afSize / 2
    */
-  drawAfMark(afs: AfShape, afc: AfColor, aff: AfFill) {
+  drawAfMark(afs: AF.Shape, afc: AF.Color, aff: AF.Fill) {
     const color = AF.colorn[afc], isf = (aff == AF.F);
     const wl = TP.afWide, wl2 = wl / 2; // line thickness (StrokeStyle)
     const wm = TP.afSize * TP.hexRad - wl2, w2 = wm / 2; // size of mark (esp: width)
     // ~eccentricity: multiply w2
     const ec = (typeof TP.afSquare === 'number') ? TP.afSquare : (TP.afSquare ? .87 : 1.35);
-    const k = 1, y0 = k - TP.hexRad * H.sqrt3_2;  // offset to top edge
+    const k = 0, y0 = k - TP.hexRad * H.sqrt3_2;  // offset to top edge
     const y1 = ec * w2 + (isf ? wl2 : 0) + y0; // make solids a bit larger b/c lack of line thickness
-    const ar = (1 + (ec - 1) * .3) * w2 + wl2; // make arc a bit larger b/c arc doesn't use y1
-    const arc0 = 0 * (Math.PI / 2), arclen = Math.PI
+    const ar = (1 + (ec - 1) * .6) * w2 + wl2; // make arc a bit larger b/c arc doesn't use y1
     const g = this.graphics
     // ss(wl) = setStrokeStyle(width, caps, joints, miterlimit, ignoreScale)
     // g.s(afc) == beginStroke; g.f(afc) == beginFill
     if (isf) { g.f(color) } else { g.ss(wl,1).s(color) }
     g.mt(w2, y0);
     (afs == AF.A) ?
-      g.mt(ar, y0).arc(0, y0, ar, arc0, arc0 + arclen, false) :
+      g.de(-w2, y0 - ar - k, wm, ar * 2) :
       (afs == AF.T) ?
         g.lt(0, y1).lt(-w2, y0) : // two Lines
         (afs == AF.S) ?
@@ -69,7 +78,7 @@ class AfMark extends Shape implements NamedObject {
     return [afs, afc, aff] as SCF;
   }
   // draw in N orientation, then rotate to dir;
-  constructor(dir: HexDir, shape: AfShape, color: AfColor, fill: AfFill) {
+  constructor(dir: HexDir, shape: AF.Shape, color: AF.Color, fill: AF.Fill) {
     super();
     this.scf = this.drawAfMark(shape, color, fill);
     this.Aname = this.name = `AfMark:${this.scf_id}`;  // for debug, not production
@@ -88,37 +97,59 @@ export type AfKey = typeof AfHex.afKeys[number];
  * the arrays are rotated as the AfHex is rotated.
  */
 export class AfHex extends NamedContainer implements Record<AfKey, string[]> {
+  /** which AfMark constructor to use (so you can subclass AfMark & inject here) */
   static afMark: Constructor<AfMark> = AfMark;
   static afKeys = ['aShapes', 'aColors', 'aFills'] as const;
   /** @deprecated advisory - for debug/analysis */
   get rot() { return Math.round(this.rotation / 60) }
   /**
    * return a cached Container with 6 AfMark children
-   * @param aShapes 6 shapes from AfShape
-   * @param aColors 6 colors from AfColor
-   * @param aFills  6 fills from AfFill
+   * @param aShapes 6 shapes from AF.Shape
+   * @param aColors 6 colors from AF.Color
+   * @param aFills  6 fills from AF.Fill
    * @param Aname
    */
   constructor(
-    public aShapes: AfShape[],
-    public aColors: AfColor[],
-    public aFills: AfFill[],
+    public aShapes: AF.Shape[],
+    public aColors: AF.Color[],
+    public aFills: AF.Fill[],
     Aname = ``,
   ) {
     super(Aname)
-    const topoDirs = TP.useEwTopo ? H.ewDirs : H.nsDirs;
+    const edgeDirs = TP.useEwTopo ? H.ewDirs : H.nsDirs;
     // make AfMark(shape,color,fill0 for each of six sides
-    this.afMarks = topoDirs.map((dir, ndx) => {
+    this.afMarks = edgeDirs.map((dir, ndx) => {
       const scf = AfHex.afKeys.map(key => this[key][ndx]) as SCF;
       const afm = new AfHex.afMark(dir, ...scf);
       return this.addChild(afm)
     })
     this._scf = this.afMarks.map(m => m.scf);
     this.mouseEnabled = false;
+    this.mask = this.makeMask();
     this.reCache()
   }
   afMarks!: AfMark[];
   _scf!: SCF[]
+
+  makeMask(rad = TP.hexRad) {
+    const cornerDirs = TP.useEwTopo ? H.nsDirs : H.ewDirs;
+    const cornerXY = (dir: HexDir, rad = TP.hexRad) => {
+      const deg = H.dirRot[dir], point = new Point(0, 0);
+      const a = deg * H.degToRadians
+      point.x += Math.sin(a) * rad;
+      point.y -= Math.cos(a) * rad;
+      return point;
+    }
+    const lt = (g: Graphics, dir: HexDir, rad = TP.hexRad) => {
+      const p = cornerXY(dir, rad)
+      return g.lt(p.x, p.y)
+    }
+    const p0 = cornerXY(cornerDirs[5])
+    const g = new Graphics().mt(p0.x, p0.y) // vs ending with closePath()
+    cornerDirs.forEach(dir => lt(g, dir, rad))
+    g.closePath(); // may be redundant...?
+    return new Shape(g);
+  }
 
   /** could be called from Tile.reCache() if that were necessary... */
   reCache(scale = TP.cacheTiles) {
@@ -178,9 +209,9 @@ export class AfHex extends NamedContainer implements Record<AfKey, string[]> {
    * @param fills  [FillA]  = [AF.F, AF.L]
    */
   static makeAllAfHex(nSCF = TP.afSCF,
-    shapes = ShapeA,   // [AF.S, AF.T, AF.A],
-    colors = ColorA,   // [AF.R, AF.G, AF.B]
-    fills = FillA,     // [AF.F, AF.L]
+    shapes = AF.ShapeA,   // [AF.S, AF.T, AF.A],
+    colors = AF.ColorA,   // [AF.R, AF.G, AF.B]
+    fills = AF.FillA,     // [AF.F, AF.L]
   ) {
     // number of Shapes, Colors, Fills to use: (expect: 1 or 2 or 3)
     const [ns, nc, nf] = nSCF; // ASSERT: shapes.length >= ns, etc

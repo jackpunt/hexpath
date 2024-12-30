@@ -196,6 +196,7 @@ export class PathCard extends Tile {
   constructor(rs: RuleSpec, size?: number) {
     if (size !== undefined) PathCard.nextRadius = size;
     super(PathCard.uniqueId(rs.id))      // Note: may need to tweak cache/reCache algo
+    if (size !== undefined) this._radius = size;
     this.rule = new PathRule(this, rs)
     this.addChildren(rs)
     PathCard.cardByName.set(this.Aname, this);
@@ -204,25 +205,27 @@ export class PathCard extends Tile {
 
   // invoked by constructor.super()
   override makeShape(): Paintable {
-    return new CardShape('lavender', '', this.radius);
+    return new CardShape('lavender', '', PathCard.nextRadius);
   }
 
   // descr=rs.d, cost=rs.c, value=-1
   addChildren(rs: RuleSpec) {
-    const rad = (this.radius * .9), ytop = -rad * (2.5 / 3.5);
-    const dSize = rad * .25
+    const { x, y, width, height } = this.getBounds()
+    const rad = width * .5, textX = rad * .7, textY = rad * .95;
+    const ytop = -rad * (3.5 / 2.5);
+    const dSize = rad * .45;
     const dText = this.dText = new CenterText(rs.d ?? rs.id, dSize)
-    dText.y = ytop + dSize * .6; // OR descr.textBaseline = 'top'
-    dText.lineWidth = rad
+    dText.y = y + dSize;             // descr.textBaseline = 'top'
+    dText.lineWidth = width * .9
     this.addChild(dText)
 
     this.cost = rs.c;
     const cText = this.cText = new CenterText(rs.c > 0 ? `${rs.c}` : '', dSize);
-    cText.x = -rad * .35; cText.y = rad * .6;
+    cText.x = -textX; cText.y = textY;
     this.addChild(cText);
 
     const vText = this.vText = new CenterText('', dSize)
-    vText.x = +rad * .35; vText.y = rad * .6;
+    vText.x = +textX; vText.y = textY;
     this.addChild(vText)
   }
   override reCache(scale?: number): void {

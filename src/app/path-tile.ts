@@ -3,7 +3,7 @@ import { CenterText, CircleShape, PaintableShape } from "@thegraid/easeljs-lib";
 import { type DragContext, H, Hex2 as Hex2Lib, HexShape, type IHex2, MapTile, Meeple, Player, type Table, TileSource, TP } from "@thegraid/hexlib";
 import { AfHex } from "./af-hex";
 import type { GameState } from "./game-state";
-import { type PathRule } from "./path-card";
+import { CardHex, type PathRule } from "./path-card";
 import { type PathHex as Hex1, type PathHex2 as Hex2 } from "./path-hex";
 import { type PathTable } from "./path-table";
 
@@ -49,12 +49,11 @@ export class PathTile extends MapTile {
   static makeSource(hex: Hex2Lib, tiles = PathTile.allPathTiles) {
     const source = PathTile.makeSource0(TileSource<PathTile>, PathTile, hex);
     tiles.forEach(unit => source.availUnit(unit));
-    source.nextUnit();  // unit.moveTo(source.hex)
     return source;
   }
 
   readonly afhex;
-  readonly plyrDisk = new CircleShape(C.white, PaintableShape.defaultRadius / 3, '');
+  readonly plyrDisk = new CircleShape(C.white, TP.hexRad * .5, '');
   readonly _valueText = new CenterText('0', undefined, C.WHITE);
   get valueText() { return this._valueText.text }
   set valueText(value: string) {
@@ -78,10 +77,20 @@ export class PathTile extends MapTile {
     PathTile.allPathTiles.push(this);
   }
 
-  override paint(colorn = C.transparent): void {
-    this.plyrDisk.paint(colorn);
-    this.nameText.color = C.WHITE;
-    super.paint(C.BLACK);
+  // paint the [player] color onto the plyrDisk; for baseShape use paintBase()
+  override paint(colorn = C.transparent, force?: boolean): void {
+    if (force || colorn !== this.plyrDisk.colorn) {
+      this._valueText.color = C.pickTextColor(colorn)
+      this.plyrDisk.paint(colorn, force);
+      this.updateCache();
+    }
+  }
+
+  // invoked by ParamGUI:
+  paintBase(colorn = C.black, tColor = C.pickTextColor(colorn)) {
+    this.nameText.color = tColor;
+    this.baseShape.paint(colorn)
+    this.updateCache();
   }
 
   override makeShape(): PaintableShape {
@@ -136,7 +145,6 @@ export class PathTile extends MapTile {
     return rules.map((rule, n) => {
       if (rule.Aname?.startsWith('veto')) { veto_n = n + 1 }
       return (n == veto_n) ? 0 : rule.value(this, toHex)
-
     }); // [rv(0), rv(1),rv(3)] for each rule
   }
 
@@ -225,12 +233,17 @@ export class PathTile extends MapTile {
 
   // dragStart->markLegal; dragFunc
   override dragFunc(hex: IHex2 | undefined, ctx: DragContext): void {
-    const hex2 = hex as Hex2, table = ctx.gameState.table;
-    const hex3 = table.hexUnderObj(this, false) as Hex2; // !legal
+    const hex2 = hex as Hex2 | undefined, table = ctx.gameState.table;
+    let hex3 = table.hexUnderObj(this, false) as Hex2; // !legal
+    if (!hex3 || CardHex.allCardHex.includes(hex3)) hex3 = this.fromHex as Hex2;
     if (ctx.info.first) this.setLegalColors();
     if (hex3 === this.targetHex) return;
     this.targetHex = hex3 as Hex2;
-    if (this.targetHex.isLegal) {
+    if (hex3 === this.fromHex) {
+      // TODO: set all card.value = undefined
+      const rules = this.rulesFromTable()
+      rules.forEach((rule, n) => rule.card.value = undefined)
+    } else if (this.targetHex.isLegal) {
       if (this.targetHex.legalMark.maxV > 0)
         this.rotateToMax(hex2); // placeValue = maxV
       else

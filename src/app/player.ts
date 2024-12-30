@@ -7,7 +7,9 @@ import { type PathTable as Table } from "./path-table";
 import { PathTile } from "./path-tile";
 import { TP } from "./table-params";
 
-const playerColors = ['red', 'lightblue', 'green', 'violet', 'gold'] as const;
+// do not conflict with AF.Colors
+const playerColors = ['gold', 'lightblue', 'violet', 'blue', 'orange', ] as const;
+
 export type PlayerColor = typeof playerColors[number];
 export class Player extends PlayerLib {
   static initialCoins = 400;

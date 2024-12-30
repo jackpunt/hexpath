@@ -1,6 +1,6 @@
-import { C } from "@thegraid/common-lib";
-import type { DragInfo } from "@thegraid/easeljs-lib";
-import { Stage } from "@thegraid/easeljs-module";
+import { C, stime } from "@thegraid/common-lib";
+import { ParamGUI, type DragInfo, type NamedObject, type ParamItem } from "@thegraid/easeljs-lib";
+import { Stage, type Container } from "@thegraid/easeljs-module";
 import { Hex2, Table, Tile, TileSource, TP, type DragContext, type IHex2 } from "@thegraid/hexlib";
 import type { GamePlay } from "./game-play";
 import type { Scenario } from "./game-setup";
@@ -46,6 +46,7 @@ export class PathTable extends Table {
     super.layoutTable2();
     PathTile.makeAllTiles();      // populate PathTile.allTiles
     this.makeSourceAtRowCol(PathTile.makeSource, 'tileBag', 1, 2.3, +.6);
+    PathTile.source.nextUnit();   // TODO: decide how many to expose; & saveState.
 
     PathCard.makeAllCards(this);      // populate PathCard.cardByName
   // TODO: reshuffle discard into source when draw from empty source
@@ -61,7 +62,7 @@ export class PathTable extends Table {
     const np = 6, pindex = np; // in slot 1 (left-center)
     const [row, col, dir] = this.panelLoc(pindex, np);
     const high = 4.133, wide = 4.5; // aligned with PlayerPanel
-    const cardPanel = this.cardPanel = new CardPanel(this, high, wide, row - high / 2, col - wide / 2)
+    const cardPanel = this.cardPanel = new CardPanel(this, 1, wide, row - high / 2, col - wide / 2)
     cardPanel.paint(C.nameToRgbaString(C.grey128, .4))
     cardPanel.fillAryWithCardHex(this, cardPanel, cardPanel.cardRack, 1, 3)
     cardPanel.makeDragable(this)
@@ -112,4 +113,24 @@ export class PathTable extends Table {
     const hex = this.hexUnderObj(tile); // clickToDrag 'snaps' to non-original hex!
     this.dragFunc0(tile, info, hex);
   }
+
+  override makeParamGUI(parent: Container, x = 0, y = 0) {
+    const gui = new ParamGUI(TP, { textAlign: 'right' });
+    gui.name = (gui as NamedObject).Aname = 'ParamGUI';
+    const gameSetup = this.gamePlay.gameSetup;
+    gui.makeParamSpec('hexRad', [30, 45, 60, 90,], { fontColor: 'red' }); TP.hexRad;
+    gui.makeParamSpec('nHexes', [5, 6, 7, 8, 9,], { fontColor: 'red' }); TP.nHexes;
+    gui.spec("hexRad").onChange = (item: ParamItem) => { gameSetup.restart({ hexRad: item.value }) }
+    gui.spec("nHexes").onChange = (item: ParamItem) => { gameSetup.restart({ nh: item.value }) }
+
+    gui.makeParamSpec('color', [C.black, C.white]).onChange = (item: ParamItem) => {
+      const tColor = C.pickTextColor(item.value);
+      PathTile.allPathTiles.forEach(tile => tile.paintBase(item.value, tColor))
+    }
+
+    parent.addChild(gui)
+    gui.x = x; gui.y = y
+    gui.makeLines();
+    return gui
+    }
 }
