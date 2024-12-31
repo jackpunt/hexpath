@@ -1,23 +1,34 @@
-import { WH, stime } from "@thegraid/common-lib";
+import { WH, stime, type XY } from "@thegraid/common-lib";
 import { makeStage } from "@thegraid/easeljs-lib";
 import { Container, DisplayObject, Stage } from "@thegraid/easeljs-module";
 
 
 export type GridSpec = {
+  /** pixel width of png template */
   width: number,  // canvas size
+  /** pixel height of png template */
   height: number, // canvas size
   nrow: number,
   ncol: number,
+  /** top margin 'indent' */
   y0: number,
+  /** even row indent [required] */
   x0: number,    // even numbered line indent
-  x1?: number,    // odd numbered line indent (x1 ?? x0)
-  delx: number,
-  dely: number,
-  cardw?: number, // cut size; also establishes rotation (portrait/landscape)
+  /** odd row indent [x0] used for hex-packed templates */
+  x1?: number,    // odd numbered line indent [x1 ?? x0]
+  /** offset per column: cardw + icg; with dely --> landscape vs portrait */
+  delx: number,   // offset per column
+  dely: number,   // offset per row
+  /** cut size of card image on template [delx]; */
+  cardw?: number,
+  /** cut size of card image on template [dely]; */
   cardh?: number,
-  bleed?: number, // ~(delx - cardw + interCardGap) icg = (width - 2*x0 -ncol*cardw)/(ncol-1)
+  /** amount to extend card image beyond cardw & cardh; (typically: .1 inch, 25-30 mm) */
+  bleed?: number,
+  /** for close-packed shapes, exclude bleed on Central edges, include on L & R */
   trimLCR?: boolean,
-  dpi?: number,   // multiply [x0, y0, delx, dely] to get pixels; default: 1 (already in pixels)
+  /** [1: already in pixels] scale factor for [x0/x1, y0, delx, dely] --> pixels */
+  dpi?: number,
   double?:boolean,
 }
 
@@ -30,7 +41,7 @@ export type PageSpec = {
 }
 
 export class ImageGrid {
-  // printer paper
+  // Office Depot stick-on circles; on Brother HL-L3210CW printer
   static circle_1_inch: GridSpec = {
     width: 8.433, height: 10.967, // not quite 8.5 X 11.0
     nrow: 10, ncol: 8,
@@ -67,7 +78,7 @@ export class ImageGrid {
     // (xmin 120) (ymin 85) (xinc 1125) (yinc 825)
     // (ncol 3) (nrow 6) (bleed 25)))
   static cardSingle_3_5: GridSpec = {
-    width: 3600, height: 5400, nrow: 6, ncol: 3, cardw: 1110, cardh: 810, // (w*300 + 2*bleed)
+    width: 3600, height: 5400, nrow: 6, ncol: 3, cardw: 1050, cardh: 750, // (inch_w*dpi + 2*bleed)
     x0: 120 + 3.5 * 150 + 30, y0: 83 + 3.5 * 150 + 30, delx: 1125, dely: 825, bleed: 30, double: false,
   };
 
@@ -75,7 +86,7 @@ export class ImageGrid {
 	// (xmin 150) (ymin 100) (xinc 833) (yinc 578.25)
 	// (over 1) (bleed 25) (xlim 3600) (ylim 5400))
   static cardSingle_1_75: GridSpec = {
-    width: 3600, height: 5400, nrow: 9, ncol: 4, cardw: 800, cardh: 575,
+    width: 3600, height: 5400, nrow: 9, ncol: 4, cardw: 750, cardh: 525,
     x0: 258 + 1.75 * 150 + 30, y0: 96 + 1.75 * 150 + 30, delx: 833, dely: 578.25, bleed: 25,
   };
 
@@ -124,7 +135,7 @@ export class ImageGrid {
     const { width, height, x0, y0, x1, delx, dely, dpi, nrow, ncol } = { ...def, ...gridSpec };
 
     this.stage.addChild(cont);
-    const XX = [x0, x1 ?? x0];
+    const XX = [x0, x1 ?? x0]; // when odd rows are indented [hex-packed shapes]
     frontObjs.forEach((dObj, n) => {
       const row = Math.floor(n / ncol);
       const col = n % ncol;

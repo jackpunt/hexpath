@@ -1,4 +1,4 @@
-import { C, stime } from "@thegraid/common-lib";
+import { C } from "@thegraid/common-lib";
 import { ParamGUI, type DragInfo, type NamedObject, type ParamItem } from "@thegraid/easeljs-lib";
 import { Stage, type Container } from "@thegraid/easeljs-module";
 import { Hex2, Table, Tile, TileSource, TP, type DragContext, type IHex2 } from "@thegraid/hexlib";
@@ -15,6 +15,14 @@ export class PathTable extends Table {
   }
   declare gamePlay: GamePlay;
   declare hexMap: HexMap2
+
+  // bgRect tall enough for 3 X 3.5 player panels
+  override bgXYWH(x0?: number, y0?: number, w0?: number, h0 = 1, dw?: number, dh?: number): { x: number; y: number; w: number; h: number; } {
+    const { dxdc, dydr } = this.hexMap.xywh;
+    const { height } = this.hexMap.mapCont.hexCont.getBounds(), h = height / dydr;
+    const h1 = (Math.max(h, 3 * 3.5 + .5) - h);
+    return super.bgXYWH(x0, y0, w0, h0 + h1, dw, dh)
+  }
 
   override layoutTable(gamePlay: GamePlay): void {
     const { table, hexMap, gameSetup } = gamePlay;
@@ -34,6 +42,7 @@ export class PathTable extends Table {
     hexC = this.hexC,
   ) {
     const hex = this.newHex2(row, col, name, hexC) as IHex2;
+    this.setToRowCol(hex.cont, row, col); // on hexCont!??
     const source = ms(hex);
     source.permuteAvailable();
     source.counter.y += TP.hexRad * dy;
@@ -45,13 +54,14 @@ export class PathTable extends Table {
     this.initialVis = false;
     super.layoutTable2();
     PathTile.makeAllTiles();      // populate PathTile.allTiles
-    this.makeSourceAtRowCol(PathTile.makeSource, 'tileBag', 1, 2.3, +.6);
+    const toprow = Math.min(1, TP.nHexes - 5), lefcol = 1;
+    this.makeSourceAtRowCol(PathTile.makeSource, 'tileBag', toprow, lefcol + 1.3, +.6);
     PathTile.source.nextUnit();   // TODO: decide how many to expose; & saveState.
 
-    PathCard.makeAllCards(this);      // populate PathCard.cardByName
-  // TODO: reshuffle discard into source when draw from empty source
+    PathCard.makeAllCards(this, {row: toprow + .9, col: lefcol}); // populate PathCard.cardByName
 
     this.addDoneButton();
+    this.setToRowCol(this.doneButton, toprow - .4, lefcol); // between cardDeck & discards
     this.addCardPanel();
     return;
   }
@@ -61,7 +71,7 @@ export class PathTable extends Table {
   addCardPanel() {
     const np = 6, pindex = np; // in slot 1 (left-center)
     const [row, col, dir] = this.panelLoc(pindex, np);
-    const high = 4.133, wide = 4.5; // aligned with PlayerPanel
+    const high = this.panelHeight, wide = this.panelWidth; // aligned with PlayerPanel
     const cardPanel = this.cardPanel = new CardPanel(this, 1, wide, row - high / 2, col - wide / 2)
     cardPanel.paint(C.nameToRgbaString(C.grey128, .4))
     cardPanel.fillAryWithCardHex(this, cardPanel, cardPanel.cardRack, 1, 3)
@@ -77,7 +87,6 @@ export class PathTable extends Table {
    */
   override addDoneButton() {
     const rv = super.addDoneButton(undefined, 0, 0); // table.doneButton('Done')
-    this.setToRowCol(this.doneButton, 1.2 + 1.25, 1); // between cardDeck & discards
     this.orig_doneClick = this.orig_doneClick ?? this.doneClicked; // override
     this.doneClicked = (evt) => {
       this.gamePlay.playerDone();
@@ -87,6 +96,9 @@ export class PathTable extends Table {
     return rv;
   }
   orig_doneClick!: (evt?: any) => void;
+  override get panelHeight() {
+    return Math.max(super.panelHeight, 3.5)
+  }
 
   override panelLocsForNp(np: number): number[] {
     return [[], [0], [0, 2], [0, 3, 2], [0, 3, 5, 2], [0, 3, 4, 5, 2], [0, 3, 4, 5, 2, 1]][np];
@@ -119,7 +131,7 @@ export class PathTable extends Table {
     gui.name = (gui as NamedObject).Aname = 'ParamGUI';
     const gameSetup = this.gamePlay.gameSetup;
     gui.makeParamSpec('hexRad', [30, 45, 60, 90,], { fontColor: 'red' }); TP.hexRad;
-    gui.makeParamSpec('nHexes', [5, 6, 7, 8, 9,], { fontColor: 'red' }); TP.nHexes;
+    gui.makeParamSpec('nHexes', [2, 3, 4, 5, 6, 7, 8, 9,], { fontColor: 'red' }); TP.nHexes;
     gui.spec("hexRad").onChange = (item: ParamItem) => { gameSetup.restart({ hexRad: item.value }) }
     gui.spec("nHexes").onChange = (item: ParamItem) => { gameSetup.restart({ nh: item.value }) }
 

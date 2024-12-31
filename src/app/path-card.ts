@@ -1,5 +1,5 @@
 import { C, S } from "@thegraid/common-lib";
-import { CenterText, NamedContainer, RectShape, RectWithDisp, type DragInfo, type NamedObject, type Paintable } from "@thegraid/easeljs-lib";
+import { CenterText, NamedContainer, RectShape, type DragInfo, type NamedObject, type Paintable } from "@thegraid/easeljs-lib";
 import { Container, DisplayObject, Graphics, MouseEvent } from "@thegraid/easeljs-module";
 import { H, Tile, TileSource, type DragContext, type HexDir, type IHex2 } from "@thegraid/hexlib";
 import { CardShape } from "./card-shape";
@@ -166,11 +166,13 @@ class PRgen {
 }
 
 export class PathCard extends Tile {
-  static nextRadius = TP.hexRad * H.sqrt3; // out-of-scope parameter
-  _radius = PathCard.nextRadius;
+  /** recompute if TP.hexRad has been changed */
+  static get onScreenRadius() { return TP.hexRad * H.sqrt3 };
+  /** out-of-scope parameter to this.makeShape(); vs trying to tweak TP.hexRad for: get radius() */
+  static nextRadius = PathCard.onScreenRadius; // when super() -> this.makeShape()
+  _radius = PathCard.nextRadius;           // when PathCard.constructor eventually runs
   override get radius() { return this._radius }
   override get isMeep() { return true; }
-  declare baseShape: RectWithDisp; // makeShape()
   declare gamePlay: GamePlay;
   rule!: PathRule
   dText!: CenterText       // set once: rs.d ?? rs.id
@@ -193,10 +195,10 @@ export class PathCard extends Tile {
   ruleValueAtRot: number[] = [];
 
   // Tile { baseShape: RectShape , nameText, descr }
+  // TileExporter supplies args = ...[rs, 750]
   constructor(rs: RuleSpec, size?: number) {
-    if (size !== undefined) PathCard.nextRadius = size;
+    if (size !== undefined) PathCard.nextRadius = size; // set before super calls makeShape()
     super(PathCard.uniqueId(rs.id))      // Note: may need to tweak cache/reCache algo
-    if (size !== undefined) this._radius = size;
     this.rule = new PathRule(this, rs)
     this.addChildren(rs)
     PathCard.cardByName.set(this.Aname, this);
@@ -204,7 +206,7 @@ export class PathCard extends Tile {
   }
 
   // invoked by constructor.super()
-  override makeShape(): Paintable {
+  override makeShape(): RectShape {
     return new CardShape('lavender', '', PathCard.nextRadius);
   }
 
@@ -323,14 +325,13 @@ export class PathCard extends Tile {
     while (PathCard.cardByName.has(id)) { id = `${rsid}#${++n}` }
     return id;
   }
-  static makeAllCards(table: Table, ...prgs: PRgen[]) {
+  static makeAllCards(table: Table, rowcol: { row?: number, col?: number }, ...prgs: PRgen[]) {
     CardHex.allCardHex.length = 0; // clear before we make all the new ones.
-
-    const r = 1.2
-    table.makeSourceAtRowCol(PathCard.makeSource, 'discards', r + 2.5, 1, .3, CardHex)
+    const { row, col } = { row: 1.9, col: 1, ...rowcol }
+    table.makeSourceAtRowCol(PathCard.makeSource, 'discards', row + 1.8, col, .3, CardHex)
     PathCard.discard = PathCard.source;
     ;(PathCard.discard as any as NamedContainer).Aname = 'PathCardDiscard';
-    table.makeSourceAtRowCol(PathCard.makeSource, 'cardDeck', r + 0.0, 1, .3, CardHex)
+    table.makeSourceAtRowCol(PathCard.makeSource, 'cardDeck', row + 0.0, col, .3, CardHex)
 
     if (prgs.length === 0) prgs = [new PRgen()];
     PathCard.cardByName.clear();
@@ -443,7 +444,7 @@ export class CardHex extends Hex2 {
 }
 
 
-/** auxillary Panel to position a cardRack on the Table (or PlayerPanel). */
+/** auxiliary Panel to position a cardRack on the Table (or PlayerPanel). */
 export class CardPanel extends NamedContainer {
   /**
    *

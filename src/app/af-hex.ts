@@ -49,12 +49,12 @@ class AfMark extends Shape implements NamedObject {
   /** draw AfMark on North edge;
    * - TP.hexRad [60] size of hex: find edge & cache
    * - TP.afSize: [.5] width of outer edge
-   * - TP.afWide: [3] pixels of line width when AF.L
+   * - TP.afWide: [3] pixels of line width when AF.L (per TP.hexRad/60)
    * - TP.afSquare: [false] true to shrink depth to be afSize / 2
    */
   drawAfMark(afs: AF.Shape, afc: AF.Color, aff: AF.Fill) {
     const color = AF.colorn[afc], isf = (aff == AF.F);
-    const wl = TP.afWide, wl2 = wl / 2; // line thickness (StrokeStyle)
+    const wl = TP.afWide * TP.hexRad / 60, wl2 = wl / 2; // line thickness (StrokeStyle)
     const wm = TP.afSize * TP.hexRad - wl2, w2 = wm / 2; // size of mark (esp: width)
     // ~eccentricity: multiply w2
     const ec = (typeof TP.afSquare === 'number') ? TP.afSquare : (TP.afSquare ? .87 : 1.35);

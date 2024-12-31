@@ -31,7 +31,7 @@ export class GameSetup extends GameSetupLib {
 
   override startup(qParams?: { [x: string]: any; }): void {
     PathTile.clearAllTiles()
-    PathCard.nextRadius = TP.hexRad * H.sqrt3;
+    PathCard.nextRadius = PathCard.onScreenRadius; // reset for on-screen PathCard
     super.startup(qParams)
   }
 

@@ -1,6 +1,6 @@
 import { C, Constructor, stime } from "@thegraid/common-lib";
-import { CircleShape, PaintableShape, type Paintable as PaintableLib } from "@thegraid/easeljs-lib";
-import { Container, DisplayObject, type Graphics } from "@thegraid/easeljs-module";
+import { CircleShape, PaintableShape } from "@thegraid/easeljs-lib";
+import { Container, DisplayObject } from "@thegraid/easeljs-module";
 import { H, Tile as TileLib, TileShape } from "@thegraid/hexlib";
 import { ImageGrid, PageSpec, type GridSpec } from "./image-grid";
 import { PathCard } from "./path-card";
@@ -45,11 +45,12 @@ export class TileExporter {
     return pageSpecs;
   }
 
-  setOrientation(card: Tile, gridSpec: GridSpec) {
+  /** rotate card to align with template orientation */
+  setOrientation(card: Tile, gridSpec: GridSpec, rot = 90) {
     const { width, height } = card.getBounds(), c_land = width > height;
     const t_land = gridSpec.delx > gridSpec.dely;
     if (c_land !== t_land) {
-      card.rotation = 90;
+      card.rotation += rot;
       card.updateCache()
     }
   }
@@ -57,40 +58,36 @@ export class TileExporter {
   /** compose bleed, background and Tile (Tile may be transparent, so white background over bleed) */
   composeTile(claz: Constructor<Tile>, args: any[], gridSpec: GridSpec, player?: Player, edge: 'L' | 'R' | 'C' = 'C') {
     const cont = new Container();
-    if (claz) {
-      const tile = new claz(...args) as TileLib, base = tile.baseShape as PaintableShape;
-      this.setOrientation(tile, gridSpec);
-      // tile.setPlayerAndPaint(player);
-      // TileShape indicates a MapTile [mostly?]
-      const backRad = (base instanceof TileShape) ? tile.radius * H.sqrt3_2 * (55 / 60) : 0;
-      const back = new CircleShape(C.WHITE, backRad);
-      // const bleed = new HexShape(tile.radius + addBleed); // .09 inch + 1px
-      const bleedShape = tile.makeShape(), bleed = gridSpec.bleed ?? 0;
-      bleedShape.rotation = tile.rotation;
-      {
-        const { x, y, width, height } = bleedShape.getBounds()
-        bleedShape.scaleX = (width + 2 * bleed) / width;
-        bleedShape.scaleY = (height + 2 * bleed) / height;
-        bleedShape.paint(base.colorn ?? C.grey, true);
-      }
-      {
-        const icg = (width: number, x0: number, ncol: number, cardw: number) => {
-          return (width - 2 * x0 - cardw * (ncol - 1)) / (ncol - 1)
-        };
-        const { width, height, x0, y0, ncol, nrow, delx, dely, cardw, cardh } = gridSpec;
-        const icgx = icg(width, x0, ncol, cardw ?? delx);  // OR cardw = base.getBounds().w
-        const icgy = icg(height, y0, nrow, cardh ?? dely); // but: double-sided is different
-      }
-      if (gridSpec.trimLCR) { // for hex shapes:
-        // trim bleedShape to base.bounds; allow extra on first/last column of row:
-        const dx0 = (edge === 'L') ? bleed : 0, dw = (edge === 'R') ? bleed : 0;
-        const { x, y, width, height } = base.getBounds(), dy = -3;
-        bleedShape.setBounds(x, y, width, height);
-        bleedShape.cache(x - dx0, y - dy, width + dx0 + dw, height + 2 * dy);
-      }
-      cont.addChild(bleedShape, back, tile);
-    }
+
+    const tile = new claz(...args) as TileLib, base = tile.baseShape as PaintableShape;
+    this.setOrientation(tile, gridSpec);
+    player && tile.setPlayerAndPaint(player);
+    // TileShape indicates a MapTile [mostly?]
+    const backRad = (base instanceof TileShape) ? tile.radius * H.sqrt3_2 * (55 / 60) : 0;
+    const back = new CircleShape(C.WHITE, backRad);
+    const bleedShape = this.makeBleed(tile, gridSpec, edge)
+    cont.addChild(bleedShape, back, tile);
+
     return cont;
+  }
+
+  makeBleed(tile: TileLib, gridSpec: GridSpec, edge: 'L' | 'R' | 'C' = 'C') {
+    const base = tile.baseShape as PaintableShape
+    const bleedShape = tile.makeShape(), bleed = gridSpec.bleed ?? 0;
+    bleedShape.rotation = tile.rotation;
+    const { x, y, width, height } = bleedShape.getBounds()
+    bleedShape.scaleX = (width + 2 * bleed) / width;
+    bleedShape.scaleY = (height + 2 * bleed) / height;
+    bleedShape.paint(base.colorn ?? C.grey, true);
+
+    if (gridSpec.trimLCR) { // for close-packed shapes, exclude bleed on C edges
+      // trim bleedShape to base.bounds; allow extra on first/last column of row:
+      const dx0 = (edge === 'L') ? bleed : 0, dw = (edge === 'R') ? bleed : 0;
+      const { x, y, width, height } = base.getBounds(), dy = -3;
+      bleedShape.setBounds(x, y, width, height);
+      bleedShape.cache(x - dx0, y - dy, width + dx0 + dw, height + 2 * dy);
+    }
+    return bleedShape;
   }
 
   /** each PageSpec will identify the canvas that contains the Tile-Images */

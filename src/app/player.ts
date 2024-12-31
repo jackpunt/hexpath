@@ -99,7 +99,7 @@ export class Player extends PlayerLib {
 
   readonly cardRack: Hex2[] = [];
   makeCardRack(table: Table, row = 0, ncols = 4) {
-    const cardPanel = new CardPanel(table, 0, 0)
+    const cardPanel = new CardPanel(table, 0, 0); // infintessimal 'panel'; just for XY.
     this.panel.addChild(cardPanel);
     cardPanel.fillAryWithCardHex(table, this.panel, this.cardRack, row, ncols)
   }

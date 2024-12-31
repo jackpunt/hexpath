@@ -54,7 +54,7 @@ export class PathTile extends MapTile {
 
   readonly afhex;
   readonly plyrDisk = new CircleShape(C.white, TP.hexRad * .5, '');
-  readonly _valueText = new CenterText('0', undefined, C.WHITE);
+  readonly _valueText = new CenterText('0', TP.hexRad * .5, C.WHITE);
   get valueText() { return this._valueText.text }
   set valueText(value: string) {
     this._valueText.text = value;
