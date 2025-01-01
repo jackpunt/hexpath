@@ -61,6 +61,7 @@ export class PathTile extends MapTile {
     this.reCache()
   }
   _placeValue = 0;
+  /** last computed value from table rules this tile@rot on targetHex (as pulled from legalMark.valuesAtRot) */
   get placeValue() { return this._placeValue }
   set placeValue(v) {
     this._placeValue = v;
@@ -127,10 +128,10 @@ export class PathTile extends MapTile {
    * @param rules rules that can/must be satisfied; each giving a value
    * @return total_value[] for each rotation. (a value is -1 if toHex w/rotation is prohibited)
    */
-  ruleValuesOnHex(toHex: Hex1, ...rules: PathRule[]) {
+  ruleValuesOnHex(toHex: Hex1, commit = false, rules: PathRule[] = this.rulesFromTable()) {
     const rotated = this.rotated;
     const valueAtRotation = Hdirs.map((dir, n) => {
-      const values = this.ruleValueAtRotation(n, toHex, ...rules)
+      const values = this.ruleValueAtRotation(n, toHex, commit, rules)
       const fails = values.filter(v => v < 0).length > 0; // if any rule failed
       return fails ? -1 : Math.sum(...values.filter(v => v >= 0));
     })
@@ -139,35 +140,40 @@ export class PathTile extends MapTile {
   }
 
   /** rule.value() at given rotation, for each rule */
-  ruleValueAtRotation(rot: number, toHex: Hex1, ...rules: PathRule[]) {
+  ruleValueAtRotation(rot: number, toHex: Hex1, commit = false, rules: PathRule[] = this.rulesFromTable()) {
     this.rotated = rot; // set ABSOLUTE rotation of afhex relative to ORGINAL spec
     let veto_n = -1;
     return rules.map((rule, n) => {
       if (rule.Aname?.startsWith('veto')) { veto_n = n + 1 }
-      return (n == veto_n) ? 0 : rule.value(this, toHex)
+      return (n == veto_n) ? 0 : rule.value(this, toHex, commit)
     }); // [rv(0), rv(1),rv(3)] for each rule
   }
 
-  rulesFromCtx (ctx?: DragContext) {
-    PathTile.curTable = (ctx?.gameState as GameState).table; // retain to find rules
-    return PathTile.curTable.cardPanel.rules ?? [];
+  rulesFromCtx (ctx: DragContext) {
+    // retain curTable for later calls where ctx is not available
+    PathTile.curTable = (ctx.gameState as GameState).table; // retain to find rules
+    return this.rulesFromTable(PathTile.curTable)
   }
   rulesFromTable(table = PathTile.curTable) {
     return table.cardPanel.rules ?? [];
   }
 
-  showRuleValues(rot: number, hex: Hex2) {
-    // re-evaluate all rules for this rotation on hex (to get each rule contribution)
-    // setting card.ruleValueAtRot
+  /** re-evaluate all rules for this tile on hex w/rotation.
+   *
+   * compute each rule's contribution and set into rule.card.value for display
+   * @param hex
+   * @param rot [this.rotated]
+   */
+  showRuleValues(hex: Hex2, rot = this.rotated) {
     const rules = this.rulesFromTable()
-    const rvar = this.ruleValueAtRotation(rot, hex, ...rules);
-    rules.forEach((rule, n) => rule.card.value = rvar[n])
+    const rvar = this.ruleValueAtRotation(rot, hex, false, rules);  // setting card.ruleValueAtRot
+    rules.map((rule, n) => rule.card.value = rvar[n])
   }
 
-  maxValueOnHex(toHex: Hex1, ctx?: DragContext) {
+  maxValueOnHex(toHex: Hex1, ctx: DragContext) {
     const rules = this.rulesFromCtx(ctx); // may be []
-    const values = this.ruleValuesOnHex(toHex, ...rules); // [v(r=0), v(r=1), ..., v(r=5)]
-    if (toHex.isOnMap && ctx?.lastShift == true) {
+    const values = this.ruleValuesOnHex(toHex, false, rules); // [v(r=0), v(r=1), ..., v(r=5)]
+    if (toHex.isOnMap && ctx.lastShift == true) {
       values.splice(0, values.length, ...values.map(v => Math.max(v, 0))) // c/-1/0/g
     } else if (!toHex.isOnMap) { // tileRack always legal, maxV = 0
       values.splice(0, values.length, ...values.map(v => 0)) // c/*/0/g
@@ -178,11 +184,11 @@ export class PathTile extends MapTile {
     return mark.maxV;
   }
 
-  /** keybinder rotation during drag; show valueAtRot[] */
+  /** keybinder rotation during drag; set placeValue & show valueAtRot[] */
   rotateNext(drot = 0, hex = this.targetHex) {
     const rot = this.rotate(drot)
     this.placeValue = hex.legalMark.valuesAtRot[rot]; // if (placeValue === '-1') drop --> fromHex
-    this.showRuleValues(rot, hex);
+    this.showRuleValues(hex, rot);
     this.stage?.update(); // tile is not cached?
   }
 
@@ -194,7 +200,7 @@ export class PathTile extends MapTile {
     const values12 = values.concat(values); // ndx in range: [0..12)
     this.rotated = values12.findIndex((v, n) => (n > rot) && (v == maxV)); // next rotated that matches maxV
     this.placeValue = hex.legalMark.valuesAtRot[this.rotated];
-    this.showRuleValues(this.rotated, hex)
+    this.showRuleValues(hex, this.rotated)
     this.stage?.update()
     return maxV;
   }
@@ -216,16 +222,16 @@ export class PathTile extends MapTile {
 
   /** max of maxV found during markLegal->isLegalTarget */
   maxV = 0;
-  // TODO: consider RuleCards & rotation.
+
   override isLegalTarget(toHex: Hex1, ctx: DragContext): boolean {
     const hex2 = toHex as Hex2;
     if (hex2.isOnMap && !!toHex.tile) return false;
-    if (ctx.lastCtrl) return true;
     const gameState = ctx.gameState as GameState, plyr = gameState.curPlayer;
-    if (plyr.cardRack.includes(hex2)) return true;
+    if (plyr.tileRack.includes(hex2)) return true;
 
     const maxV = this.maxValueOnHex(hex2, ctx)
     this.maxV = Math.max(maxV, this.maxV);
+    if (ctx.lastCtrl) return true;
     return (maxV >= 0)
   }
 
@@ -233,15 +239,14 @@ export class PathTile extends MapTile {
 
   // dragStart->markLegal; dragFunc
   override dragFunc(hex: IHex2 | undefined, ctx: DragContext): void {
-    const hex2 = hex as Hex2 | undefined, table = ctx.gameState.table;
-    let hex3 = table.hexUnderObj(this, false) as Hex2; // !legal
-    if (!hex3 || CardHex.allCardHex.includes(hex3)) hex3 = this.fromHex as Hex2;
+    const hex2 = hex as Hex2 | undefined, table = ctx.gameState.table as PathTable; // hex2 is LEGAL hexUnder
+    const hexAny = table.hexUnderObj(this, false);
+    const hex3 = ((!hexAny || CardHex.allCardHex.includes(hexAny)) ? this.fromHex as Hex2 : hexAny);
     if (ctx.info.first) this.setLegalColors();
     if (hex3 === this.targetHex) return;
     this.targetHex = hex3 as Hex2;
     if (hex3 === this.fromHex) {
-      // TODO: set all card.value = undefined
-      const rules = this.rulesFromTable()
+      const rules = this.rulesFromCtx(ctx); // setting PathTile.curTable; [always the first drag]
       rules.forEach((rule, n) => rule.card.value = undefined)
     } else if (this.targetHex.isLegal) {
       if (this.targetHex.legalMark.maxV > 0)
@@ -263,14 +268,14 @@ export class PathTile extends MapTile {
 
   }
   override dropFunc(targetHex: IHex2, ctx: DragContext): void {
-    if (targetHex.tile && targetHex !== this.source.hex) targetHex.tile.sendHome();
+    if (targetHex.tile && targetHex !== this.source.hex) {
+      targetHex.tile.sendHome();  // playerPanel replacement
+    }
     if (this.placeValue == -1) {
       targetHex = this.fromHex; // bad rotation: return to sender
     }
     super.dropFunc(targetHex, ctx); // this.placeTile(targetHex)
 
-    if (!this.source?.sourceHexUnit) this.source.nextUnit();
-    this.source?.sourceHexUnit.setPlayerAndPaint(undefined);
     this.targetHex = this.source.hex as Hex2;
     const selfDrop = (this.hex == this.fromHex)
     if (!selfDrop) {
@@ -281,10 +286,18 @@ export class PathTile extends MapTile {
   }
 
   /** when tile is placed on map, credit player with value of placement. */
-  override placeTile(toHex?: Hex1, payCost?: boolean): void {
-    const mark = (toHex as Hex2).legalMark;
-    const value = this.placeValue;
-    if (value > 0 && this.player) this.player.coins += value;
+  override placeTile(toHex?: Hex1, payCost = true): void {
+    if (toHex) {
+      const rotValues = (toHex as Hex2).legalMark.valuesAtRot; // for debugging -> placeValue
+      const value = this.placeValue;
+      if (value > 0 && this.player) {
+        this.player.coins += value;
+        // if atk rule succeeds, set player of captured tile:
+        const rules = this.rulesFromTable().filter(r => r.type === 'atk')
+        if (rules.length > 0)
+          this.ruleValueAtRotation(this.rotated, toHex, payCost, rules); // true, mostly
+      }
+    }
     super.placeTile(toHex, payCost);
   }
 }

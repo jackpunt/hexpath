@@ -1,11 +1,11 @@
 import { C } from "@thegraid/common-lib";
 import { ParamGUI, type DragInfo, type NamedObject, type ParamItem } from "@thegraid/easeljs-lib";
-import { Stage, type Container } from "@thegraid/easeljs-module";
+import { Stage, type Container, type DisplayObject } from "@thegraid/easeljs-module";
 import { Hex2, Table, Tile, TileSource, TP, type DragContext, type IHex2 } from "@thegraid/hexlib";
 import type { GamePlay } from "./game-play";
 import type { Scenario } from "./game-setup";
 import { CardPanel, PathCard, type CardBack } from "./path-card";
-import { type HexMap2 } from "./path-hex";
+import { type HexMap2, type PathHex2 } from "./path-hex";
 import { PathTile } from "./path-tile";
 
 export class PathTable extends Table {
@@ -14,7 +14,11 @@ export class PathTable extends Table {
     this.initialVis = true;
   }
   declare gamePlay: GamePlay;
-  declare hexMap: HexMap2
+  declare hexMap: HexMap2;
+  // return type declaration:
+  override hexUnderObj(dragObj: DisplayObject, legalOnly?: boolean) {
+    return super.hexUnderObj(dragObj, legalOnly) as PathHex2 | undefined;
+  }
 
   // bgRect tall enough for 3 X 3.5 player panels
   override bgXYWH(x0?: number, y0?: number, w0?: number, h0 = 1, dw?: number, dh?: number): { x: number; y: number; w: number; h: number; } {

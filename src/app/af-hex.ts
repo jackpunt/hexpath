@@ -173,6 +173,7 @@ export class AfHex extends NamedContainer implements Record<AfKey, string[]> {
 
   /** increase rotation by rot;
    * @param rotn +1 --> +60 degrees CW
+   * @return this.rotated
    */
   rotate(rot = 1) {
     const rotn = ((rot % 6) + 6) % 6; // in range: [0..6)

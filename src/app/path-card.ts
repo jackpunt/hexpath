@@ -1,4 +1,4 @@
-import { C, S } from "@thegraid/common-lib";
+import { C, S, stime } from "@thegraid/common-lib";
 import { CenterText, NamedContainer, RectShape, type DragInfo, type NamedObject, type Paintable } from "@thegraid/easeljs-lib";
 import { Container, DisplayObject, Graphics, MouseEvent } from "@thegraid/easeljs-module";
 import { H, Tile, TileSource, type DragContext, type HexDir, type IHex2 } from "@thegraid/hexlib";
@@ -15,12 +15,14 @@ import type { CountClaz } from "./tile-exporter";
 
 // TODO: define rectange 'Tiles' to hold the Rule/Constraint/Bonus items.
 /** @return value of placement [-1 if proscribed]  */
-type Vfunc = (tile: PathTile, hex: Hex1) => number;
+type Vfunc = (tile: PathTile, hex: Hex1, commit?: boolean) => number;
 /** @return value of edge in placement [-1 if proscribed]  */
 type Efunc = (tile: PathTile, hex: Hex1, dir: HexDir) => number;
-/** id: ident, c: cost, t: type, d: description, vf: value, ef: edge */
+
+type Rtype = 'edge' | 'own' | 'spcl' | 'atk'; // special: 'veto'
+/** id: ident, c: cost, t: type, d: description, vf: value_f, ef: edge_f, l: level */
 type RuleSpec = {
-  id: string, c: number, t?: string, d?: string, vf?: Vfunc, ef?: Efunc
+  id: string, c: number, t?: Rtype, d?: string, vf?: Vfunc, ef?: Efunc, l?: number,
 }
 const Hdirs = TP.useEwTopo ? H.ewDirs : H.nsDirs;
 const Hdir2 = Hdirs.slice(0, 3); // half of Hdirs
@@ -30,17 +32,19 @@ const Hdir2 = Hdirs.slice(0, 3); // half of Hdirs
  */
 export class PathRule implements NamedObject {
   Aname?: string | undefined;
-  text = '';
-  cost = 0; // purchase or placement cost, also base value
-  type = 'edge';
+  text = ''; // description
+  cost = 0; // purchase or placement cost, value multiplier
+  type: Rtype = 'edge'; //vs 'own'
+  level = 1; // [cost]
 
-  constructor(public card: PathCard, ps: RuleSpec) {
-    this.Aname = ps.id;
-    this.text = ps.d ?? ps.id;
-    this.cost = ps.c;
-    if (ps.t) this.type = ps.t;    // edge | own
-    if (ps.vf) this.valuef = ps.vf;
-    if (ps.ef) this.edgef = ps.ef;
+  constructor(public card: PathCard, rs: RuleSpec) {
+    this.Aname = rs.id;
+    this.text = rs.d ?? rs.id;
+    this.cost = rs.c;
+    this.level = rs.l ?? rs.c;
+    if (rs.t) this.type = rs.t ?? (this.text.startsWith('-own-') ? 'own' : 'edge');    // edge | own | atk | spcl
+    if (rs.vf) this.valuef = rs.vf;
+    if (rs.ef) this.edgef = rs.ef;
   }
 
   /** apply ef to edge/join in each dir; return [ef(NE), ef(E),...,ef(NW)] */
@@ -53,6 +57,7 @@ export class PathRule implements NamedObject {
 
   /**
    * base template: Hdirs.map(edgef(dir));
+   * overwritten by rs.vf
    * @return -1 if any edge fails, else map(edgef).reduce(sum);
    */
   valuef: Vfunc = (tile: PathTile, hex: Hex1) => {
@@ -62,10 +67,14 @@ export class PathRule implements NamedObject {
 
   /**
    * invoked to see if this Rule is satisfied, and if so to what value.
+   *
+   * set that value in this.card.ruleValueAtRot[rot]
+   *
+   * @param commit [false] set true to commit attack
    * @return \<0 if bad placement, else (valuef * cost) >= 0
    */
-  value(tile: PathTile, hex: Hex1) {
-    const v = this.valuef(tile, hex) * this.cost;
+  value(tile: PathTile, hex: Hex1, commit = false) {
+    const v = this.valuef(tile, hex, commit) * this.cost;
     this.card.ruleValueAtRot[tile.rotated] = v;
     return v
   }
@@ -118,24 +127,79 @@ class PRgen {
     return join ? (m ? nm : -1) : 0;
   }
 
-  // make a line-of-3 in at least one dir; score line length in each dir (if len > 3)
+  // check for line-of-3 in at least one dir; score line length in each dir (if len > n)
   vfunc_make_line(n: number, tile: PathTile, hex: Hex1) {
-    const ev = Hdirs.map(dir => this.efunc_line_len(tile, hex, dir)); // [ef(NE), ef(E)...ef(NW)]
+    const ev = Hdirs.map(dir => 1 + this.efunc_line_len(tile, hex, dir)); // [ef(NE), ef(E)...ef(NW)]
     const evN = ev.filter(v => v >= n)
     const sum = Math.sum(...evN); // an edge may be 0, but never -1;
     return sum > 0 ? sum : -1;
   }
-  /** line_len >= n, in given dir; given hex + 2 others */
+  /** number of segments in given dir; given hex + len others */
   efunc_line_len = (tile: PathTile, hex: Hex1, dir: HexDir) => {
-    let len = 1, hexN = hex.nextHex(dir), join = hexN?.tile, plyr = tile?.player;
-    for (; plyr && hexN?.tile?.player === plyr; len++, hexN = hexN?.nextHex(dir)) { }
-    return join ? len : 0;
+    const plyr = tile?.player as Player;
+    if (!plyr) debugger; // hex is not on map?
+    let len = 0, hexN = hex.nextHex(dir);
+    for (; hexN?.tile?.player === plyr; len++, hexN = hexN?.nextHex(dir));
+    return len
   }
 
   vfunc_fill_in(n: number, tile: PathTile, hex: Hex1) {
     const ev = Hdirs.map(dir => this.efunc_line_len(tile, hex, dir)); // [ef(NE), ef(E)...ef(NW)]
-    const evN = Hdir2.map((dir, n) => (ev[n] > 1 && ev[(n + 3) % 6] > 1) ? (ev[n] + ev[(n + 3) % 6] - 1) : 0)
+    const evN = Hdir2.map((dir, n) => (ev[n] > 0 && ev[n + 3] > 0) ? (ev[n] + ev[n + 3] + 1) : 0)
     const sum = Math.sum(...evN); // an edge may be 0, but never -1;
+    return sum > 0 ? sum : -1;
+  }
+
+  /** adjacent to n tiles player does NOT own */
+  vfunc_adj_other_n(n: number, tile: PathTile, hex: Hex1) {
+    const plyr = tile?.player; // assert: (plyr !== undefined)
+    const ev = Hdirs.filter(dir => {
+      const aTile = hex.links[dir]?.tile;
+      return aTile && (aTile.player !== plyr)
+    })
+    const evn = ev.length;
+    return (evn >= n) ? evn : -1;
+  }
+
+  /** adjacent to n tiles player DOES own. */
+  vfunc_adj_own_n(n: number, tile: PathTile, hex: Hex1) {
+    const plyr = tile?.player; // assert: (plyr !== undefined)
+    const ev = Hdirs.filter(dir => hex.links[dir]?.tile?.player === plyr)
+    const evn = ev.length;
+    return (evn >= n) ? evn : -1;
+  }
+
+  efunc_atk_n(tile: PathTile, hex: Hex1, dir: HexDir, n: number) {
+    const plyr = tile?.player as Player;
+    let len = 0, hexN = hex.nextHex(dir); // generally: (n > 0)
+    for (; hexN?.tile?.player === plyr; len++, hexN = hexN?.nextHex(dir));
+    // last player tile was: hex.nexHex(dir, len); hexN?.tile?.player !== plyr
+
+    if (len >= n && hexN?.tile) {
+      hexN.tile.setPlayerAndPaint(plyr); // TODO: graphic feedback (ala hexline)
+      return len;
+    }
+    return 0;
+  }
+
+  vfunc_atk_n(n: number, tile: PathTile, hex: Hex1, commit = false) {
+    // value = len+1 IFF (line_of_n && nextHex.tile)
+    const ev = Hdirs.map(dir => 1 + this.efunc_line_len(tile, hex, dir)); // [ef(NE), ef(E)...ef(NW)]
+    const evN = ev.map((len, nth) => {
+      if (len >= n) {
+        const nTile = hex.nextHex(Hdirs[nth], len)?.tile;
+        const plyr = tile.player;
+        if (!plyr) { debugger; return 0 }
+        if (nTile && nTile.player !== plyr) {
+          if (commit) {
+            nTile.setPlayerAndPaint(plyr)
+          }
+          return len; // successful attack
+        }
+      }
+      return 0;
+    })
+    const sum = Math.sum(...evN)
     return sum > 0 ? sum : -1;
   }
 
@@ -149,10 +213,15 @@ class PRgen {
     { id: 'colors', c: 1, vf: (t, h) => this.vfunc_match_scf(1, t, h), d: 'All colors match' },
     { id: 'fills', c: 1, vf: (t, h) => this.vfunc_match_scf(2, t, h), d: 'All fills match' },
     // own
-    { id: 'line3', c: 2, vf: (t, h) => this.vfunc_make_line(3, t, h), d: '-own-\nline of 3' },
+    { id: 'other1', c: 2, l: 1, vf: (t, h) => this.vfunc_adj_other_n(1, t, h), d: '-own-\n1+ other adjacent'},
+    { id: 'adj1', c: 2, l: 1, vf: (t, h) => this.vfunc_adj_own_n(1, t, h), d: '-own-\n1+ own adjacent'},
+    { id: 'adj2', c: 2, vf: (t, h) => this.vfunc_adj_own_n(2, t, h), d: '-own-\n2+ adjacent'},
+    { id: 'line3', c: 2, vf: (t, h) => this.vfunc_make_line(3, t, h), d: '-own-\nline of 3+' },
     { id: 'fill-in', c: 2, vf: (t, h) => this.vfunc_fill_in(2, t, h), d: '-own-\nfill-in gap' },
     // veto
-    { id: 'veto', c: 2, vf: (t, h) => 0, d: 'VETO\n---->' }
+    { id: 'veto', c: 2, vf: (t, h) => 0, d: 'VETO\n---->' },
+    // status rules: examine state of the board to have effects, give point
+    { id: 'attack3', t: 'atk', c: 3, vf: (t, h, c) => this.vfunc_atk_n(3, t, h, c), d: '-attack-\nline of 3+'},
   ]
   // edge rules:
   // 3 shapes, 2-3 colors, 2 fills
@@ -166,6 +235,7 @@ class PRgen {
 }
 
 export class PathCard extends Tile {
+  static get allCards() { return Array.from(this.cardByName.values()) }
   /** recompute if TP.hexRad has been changed */
   static get onScreenRadius() { return TP.hexRad * H.sqrt3 };
   /** out-of-scope parameter to this.makeShape(); vs trying to tweak TP.hexRad for: get radius() */
@@ -339,13 +409,25 @@ export class PathCard extends Tile {
       prg.ruleSpecs.map(ps => new PathCard(ps))
       prg.ruleSpecs.map(ps => new PathCard(ps))
     })
-    PathCard.cardByName.forEach(card => PathCard.discard.availUnit(card));
-    this.reshuffle()
+    this.initialSort(PathCard.allCards, PathCard.source)
 
     const cardback = table.cardBack = new CardBack(table); // it a Button, mostly.
     cardback.moveTo(PathCard.source.hex as Hex1); // set position above source.hex
     cardback.moveTo(undefined);
     cardback.on(S.click, (evt) => cardback.clicked(evt), cardback )
+  }
+
+  static initialSort(cards = PathCard.allCards, source = PathCard.source) {
+    const levels = [1, 2, 3].map(level =>
+      cards.filter(card => card.rule.level == level)
+    ).reverse()
+
+    const stacks = levels.map((ary, nth, lvls) => {
+      const n = (ary.length + 1) / 2;
+      return ary.slice().concat(... lvls.slice(nth + 1).map(aryN => aryN.splice(0, n)))
+    }).reverse()
+    // enqueue all the stacks on source:
+    stacks.forEach(stack => stack.forEach(card => source.availUnit(card, true)))
   }
 
   static reshuffle() {

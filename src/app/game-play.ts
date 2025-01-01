@@ -7,6 +7,7 @@ import type { PathTable } from "./path-table";
 import type { Player } from "./player";
 import { TP } from "./table-params";
 import { stime } from "@thegraid/common-lib";
+import { PathTile } from "./path-tile";
 
 
 export class GamePlay extends GamePlayLib {
@@ -26,6 +27,12 @@ export class GamePlay extends GamePlayLib {
   playerDone() {
     const plyr = this.curPlayer;
     plyr.gamePlay.hexMap.update(); // TODO: this.playerDone(ev)
+  }
+
+  // during setNextPlayer
+  override paintForPlayer(): void {
+    if (!PathTile.source?.sourceHexUnit) PathTile.source.nextUnit();
+    PathTile.source.sourceHexUnit?.setPlayerAndPaint(this.curPlayer);
   }
 
   brake = false; // for debugger
