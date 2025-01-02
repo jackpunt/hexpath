@@ -79,6 +79,7 @@ export class PathTable extends Table {
 
   cardBack!: CardBack;
   cardPanel!: CardPanel;
+  get cardRack() { return this.cardPanel.cardRack }
   addCardPanel() {
     const np = 6, pindex = np; // in slot 1 (left-center)
     const [row, col, dir] = this.panelLoc(pindex, np);

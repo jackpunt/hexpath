@@ -47,12 +47,8 @@ export class GamePlay extends GamePlayLib {
   undoCardDraw() {
     const card = this.gameState.cardDone
     if (card) {
-      const src = this.table.cardSource;
-      const unit = src.sourceHexUnit
-      if (unit) {
-        src.availUnit(unit)
-      }
-      src.availUnit(card);
+      // even from table.cardRack! [not a complete undo]
+      this.table.cardSource.availUnit(card);
       this.gameState.cardDone = undefined;
     }
   }

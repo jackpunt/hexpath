@@ -310,7 +310,7 @@ export class PathCard extends Tile {
   override cantBeMovedBy(player: Player, ctx: DragContext): string | boolean | undefined {
     if (this.fromHex === PathCard.source.hex) return undefined;
     const gameState = ctx.gameState as GameState, table = gameState.table as PathTable;
-    if (table.cardPanel.cardRack.includes(this.fromHex as Hex2)) return 'rule in play';
+    if (table.cardRack.includes(this.fromHex as Hex2)) return 'rule in play';
     const isDoneCard = (gameState.cardDone === this);
     if (!isDoneCard && this.fromHex === table.cardDiscard.hex) return 'discarded';
     return undefined; // player.cardRack OR (discard && isDoneCard)
@@ -318,7 +318,7 @@ export class PathCard extends Tile {
 
   override markLegal(table: Table, setLegal = (hex: Hex2) => { hex.isLegal = false; }, ctx?: DragContext): void {
     table.gamePlay.curPlayer.cardRack.forEach(setLegal)
-    setLegal(table.cardPanel.cardRack[0])
+    setLegal(table.cardRack[0])
     setLegal(PathCard.discard.hex as Hex2)
   }
   // cardDeck -> discard, table.cardPanel[0], player.cardRack
@@ -327,7 +327,7 @@ export class PathCard extends Tile {
   override isLegalTarget(toHex: Hex2, ctx: DragContext): boolean {
     // Ok to move from player.cardRack but not to table.cardRack (unless == cardDone)
     if ((ctx.gameState as GameState).notDoneTile(this, true) &&
-      (ctx.gameState.table as Table).cardPanel.cardRack.includes(toHex)) return false;
+      (ctx.gameState.table as Table).cardRack.includes(toHex)) return false;
     return true;
   }
 
@@ -378,7 +378,7 @@ export class PathCard extends Tile {
         this.moveTo(plyr.cardRack[alt]); // swap into empty slot
       }
     } else {
-      const hexAry = plyr?.gamePlay.table.cardPanel.cardRack ?? [];
+      const hexAry = plyr?.gamePlay.table.cardRack ?? [];
       const len = hexAry.length, ndx0 = hexAry.indexOf(hex);
       if (ndx0 !== 0) debugger; // not allowed to drop on other slots...
 

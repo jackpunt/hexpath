@@ -72,7 +72,7 @@ export class ScenarioParser extends SPLib {
     const gameState = this.gamePlay.gameState.saveState();
     const tiles = Player.allPlayers.map(p => namesOf(p.tiles)).filter(t => !!t)
     const cards = Player.allPlayers.map(p => namesOf(p.cards)).filter(c => !!c)
-    const rCards = table.cardPanel.cardRack.map(hex => hex.card);
+    const rCards = table.cardRack.map(hex => hex.card);
     const rules = namesOf(rCards);
     setupElt.gameState = gameState;
     setupElt.cards = cards;
