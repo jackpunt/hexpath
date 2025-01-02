@@ -36,15 +36,11 @@ export class GameState extends GameStateLib {
     this.table.cardBack.dim(!!v)
     if (this.allDone) this.done();
   }
-  /** return Table suitable for table?.stopDragging(tile) */
-  notDragable(tile: Tile, card = false) {
-    if (card
+  /** return true if given tile/card is the current doneTile/doneCard */
+  notDoneTile(tile: Tile, card = false) {
+    return (card
       ? (this.cardDone && tile !== this.cardDone)
-      : (this.tileDone && tile !== this.tileDone)) {
-      this.table.stopDragging(tile.fromHex);
-      return true;
-    }
-    return false;
+      : (this.tileDone && tile !== this.tileDone))
   }
 
   get allDone() { return this.tileDone && this.cardDone }

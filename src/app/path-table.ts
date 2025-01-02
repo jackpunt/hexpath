@@ -62,13 +62,20 @@ export class PathTable extends Table {
     this.makeSourceAtRowCol(PathTile.makeSource, 'tileBag', toprow, lefcol + 1.3, +.6);
     PathTile.source.nextUnit();   // TODO: decide how many to expose; & saveState.
 
-    PathCard.makeAllCards(this, {row: toprow + .9, col: lefcol}); // populate PathCard.cardByName
+    const [source, discard] = PathCard.makeCardSources(this, {row: toprow + .9, col: lefcol})
+    this.cardSource = source;
+    this.cardDiscard = discard;
+
+    PathCard.makeAllCards(); // populate PathCard.cardByName
 
     this.addDoneButton();
     this.setToRowCol(this.doneButton, toprow - .4, lefcol); // between cardDeck & discards
     this.addCardPanel();
     return;
   }
+
+  cardSource!: TileSource<PathCard>
+  cardDiscard!: TileSource<PathCard>
 
   cardBack!: CardBack;
   cardPanel!: CardPanel;
@@ -124,7 +131,7 @@ export class PathTable extends Table {
     return super.markLegalHexes(tile, ctx);
   }
 
-  // debugg copy; do not keep
+  // debug copy; do not keep
   override dragFunc(tile: Tile, info: DragInfo) {
     const hex = this.hexUnderObj(tile); // clickToDrag 'snaps' to non-original hex!
     this.dragFunc0(tile, info, hex);

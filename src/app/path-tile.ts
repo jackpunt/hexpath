@@ -187,6 +187,7 @@ export class PathTile extends MapTile {
 
   /** keybinder rotation during drag; set placeValue & show valueAtRot[] */
   rotateNext(drot = 0, hex = this.targetHex) {
+    if (this.hex) return; // this tile not being dragged
     const rot = this.rotate(drot)
     this.placeValue = hex.legalMark.valuesAtRot[rot]; // if (placeValue === '-1') drop --> fromHex
     this.showRuleValues(hex, rot);
@@ -195,6 +196,7 @@ export class PathTile extends MapTile {
 
   /** auto-rotate during drag; valueAtRot[] == maxV */
   rotateToMax(hex = this.targetHex) {
+    if (this.hex) return;
     const maxV = hex.legalMark.maxV, rot = this.rotated;
     const values = hex.legalMark.valuesAtRot;
     if (!values) return; // back to bag...
@@ -206,12 +208,15 @@ export class PathTile extends MapTile {
     return maxV;
   }
 
+  override cantBeMovedBy(player: PlayerLib, ctx: DragContext): string | boolean | undefined {
+    // if ((ctx.gameState as GameState).notDoneTile(this)) return 'cardDone';
+    if (this.hex?.isOnMap && !ctx.lastShift) return 'tile on map';
+    return super.cantBeMovedBy(player, ctx);
+  }
+
   override dragStart(ctx: DragContext): void {
-    if ((this.gamePlay.gameState as GameState).notDragable(this)) return;
-    this.setPlayerAndPaint(this.gamePlay.curPlayer)
-    this.reCache()
-    super.dragStart(ctx)
-    this.targetHex = this.fromHex as Hex2;
+    super.dragStart(ctx); // --> cantBeMovedBy()
+    this.targetHex = this.fromHex as Hex2; // for keybinder rotation
   }
 
   // dragStart -> markLegal; dragFunc(ctx.info.first) -> setLegalColors
@@ -225,12 +230,11 @@ export class PathTile extends MapTile {
   maxV = 0;
 
   override isLegalTarget(toHex: Hex1, ctx: DragContext): boolean {
-    const hex2 = toHex as Hex2;
-    if (hex2.isOnMap && !!toHex.tile) return false;
-    const gameState = ctx.gameState as GameState, plyr = gameState.curPlayer;
-    if (plyr.tileRack.includes(hex2)) return true;
+    const plyr = (ctx.gameState as GameState).curPlayer;
+    if (plyr.tileRack.includes(toHex as Hex2)) return true;
 
-    const maxV = this.maxValueOnHex(hex2, ctx)
+    if (toHex.isOnMap && !!toHex.tile) return false; // isOnMap redundant...
+    const maxV = this.maxValueOnHex(toHex, ctx)
     this.maxV = Math.max(maxV, this.maxV);
     if (ctx.lastCtrl) return true;
     return (maxV >= 0)
@@ -269,17 +273,27 @@ export class PathTile extends MapTile {
 
   }
   override dropFunc(targetHex: IHex2, ctx: DragContext): void {
+    const plyr = this.player as Player
     if (targetHex.tile && targetHex !== this.source.hex) {
-      targetHex.tile.sendHome();  // playerPanel replacement
+      // collision on playerPanel:
+      const otile = targetHex.tile;
+      const ndx = plyr.tileRack.findIndex(hex => !hex.tile)
+      if (ndx < 0) {
+        otile.sendHome();  // discard to make slot empty
+      } else {
+        otile.moveTo(plyr.tileRack[ndx]) // move otile to open slot
+      }
     }
     if (this.placeValue == -1) {
       targetHex = this.fromHex; // bad rotation: return to sender
     }
     super.dropFunc(targetHex, ctx); // this.placeTile(targetHex)
 
-    this.targetHex = this.source.hex as Hex2;
+    // maybe set gameState.tileDone;
     const selfDrop = (this.hex == this.fromHex)
-    if (!selfDrop) {
+    const rackSwap = plyr.rackSwap(this.fromHex, targetHex, plyr.tileRack)
+    if (selfDrop || rackSwap) return;
+    {
       setTimeout(() => {
         (ctx.gameState as GameState).tileDone = this; // return & markLegal() before setNextPlayer
       }, 1);

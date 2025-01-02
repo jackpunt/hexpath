@@ -6,7 +6,7 @@ import { CardShape } from "./card-shape";
 import { type GamePlay } from "./game-play";
 import type { GameState } from "./game-state";
 import { PathHex2 as Hex2, type PathHex as Hex1, type HexMap2 } from "./path-hex";
-import { type PathTable as Table } from "./path-table";
+import { type PathTable, type PathTable as Table } from "./path-table";
 import type { PathTile } from "./path-tile";
 import type { Player } from "./player";
 import { TP } from "./table-params";
@@ -305,32 +305,30 @@ export class PathCard extends Tile {
   override reCache(scale?: number): void {
     super.reCache(0); // no cache?
   }
+
+  // Identify il-legal sources of fromHex:
+  override cantBeMovedBy(player: Player, ctx: DragContext): string | boolean | undefined {
+    if (this.fromHex === PathCard.source.hex) return undefined;
+    const gameState = ctx.gameState as GameState, table = gameState.table as PathTable;
+    if (table.cardPanel.cardRack.includes(this.fromHex as Hex2)) return 'rule in play';
+    const isDoneCard = (gameState.cardDone === this);
+    if (!isDoneCard && this.fromHex === table.cardDiscard.hex) return 'discarded';
+    return undefined; // player.cardRack OR (discard && isDoneCard)
+  }
+
   override markLegal(table: Table, setLegal = (hex: Hex2) => { hex.isLegal = false; }, ctx?: DragContext): void {
     table.gamePlay.curPlayer.cardRack.forEach(setLegal)
-    table.cardPanel.cardRack.forEach(setLegal);
+    setLegal(table.cardPanel.cardRack[0])
     setLegal(PathCard.discard.hex as Hex2)
   }
+  // cardDeck -> discard, table.cardPanel[0], player.cardRack
+  // cardRack -> discard, table.cardPanel[0], player.cardRack
+  // discard (== gameState.cardDone) -> discard, table.cardPanel, player.cardRack
   override isLegalTarget(toHex: Hex2, ctx: DragContext): boolean {
-    if (ctx.lastCtrl) return true;
-    const gameState = ctx.gameState as GameState, plyr = gameState.curPlayer;
-    const tableRack = gameState.table.cardPanel.cardRack;
-    const fromTable = tableRack.includes(this.fromHex as Hex2);
-    if (fromTable) return false;
-
-    const toRackHex = plyr.cardRack.includes(toHex);
-    const cardDone = gameState?.cardDone;
-    if (cardDone) {
-      return toRackHex ? true : false;
-    }
-    // from: [cardRack, cardDeck, discards] -> [discards, cardRack, tableRack[0], ]
-    if (toHex.Aname == 'discards') return true;
-    if (toRackHex) return true;
-    if (tableRack[0] == toHex) return true;
-    return false;
-  }
-  override dragStart(ctx: DragContext): void {
-    // TODO: decrement player.coins if this.isOnMap && enforce ctx.lastShift!
-    super.dragStart(ctx);
+    // Ok to move from player.cardRack but not to table.cardRack (unless == cardDone)
+    if ((ctx.gameState as GameState).notDoneTile(this, true) &&
+      (ctx.gameState.table as Table).cardPanel.cardRack.includes(toHex)) return false;
+    return true;
   }
 
   override showTargetMark(hex: IHex2 | undefined, ctx: DragContext): void {
@@ -340,16 +338,20 @@ export class PathCard extends Tile {
 
   override dropFunc(targetHex: IHex2, ctx: DragContext): void {
     const toHex = targetHex as Hex2, card = toHex.card;
-    if (card) card.moveCard(toHex, card, ctx);
+    if (card && card !== this) card.moveCard(toHex, ctx);
     super.dropFunc(targetHex ?? PathCard.discard.hex, ctx);
     if (!PathCard.discard.sourceHexUnit) PathCard.discard.nextUnit(); // reveal discard
     PathCard.discard.updateCounter();
     PathCard.source.updateCounter();
     ctx.targetHex?.map.showMark(undefined); // if (this.fromHex === undefined)
+    // maybe set gameState.cardDone
     const gameState = ctx.gameState as GameState, fromHex = this.fromHex as Hex2;
-    const cardRack = (gameState.curPlayer as Player).cardRack;
-    const selfDrop = (toHex == fromHex) || (cardRack.includes(toHex) && cardRack.includes(fromHex))
-    if (!selfDrop) {
+    const plyr = (gameState.curPlayer as Player)
+    const selfDrop = (fromHex == toHex);
+    const rackSwap = plyr.rackSwap(this.fromHex, targetHex, plyr.cardRack)
+    const discard = plyr.cardRack.includes(fromHex) && (toHex == PathCard.discard.hex)
+    if (selfDrop || rackSwap || discard) return;
+    {
       setTimeout(() => {
         gameState.cardDone = this; // triggers setNextPlayer; which confuses markLegal()
       }, 0);
@@ -362,14 +364,19 @@ export class PathCard extends Tile {
   }
 
   /** hex contains card, which needs to be moved: */
-  moveCard(hex: Hex2, card: PathCard, ctx: DragContext) {
+  moveCard(hex: Hex2, ctx: DragContext) {
     // if hex is 'discards' --> let unitCollision stack them
     // if hex in player.cardRack[]: card.sendHome()
     // if hex is table.cardRack[0]: shift all cards up
     if (hex.Aname == 'discards') return;
     const plyr = ctx.gameState?.curPlayer as Player | undefined;
     if (plyr?.cardRack.includes(hex)) {
-      card.sendHome(); // move player card to discards
+      const alt = plyr.cardRack.findIndex(hex => !hex.card)
+      if (alt < 0) {
+        this.sendHome(); // move player card to discards
+      } else {
+        this.moveTo(plyr.cardRack[alt]); // swap into empty slot
+      }
     } else {
       const hexAry = plyr?.gamePlay.table.cardPanel.cardRack ?? [];
       const len = hexAry.length, ndx0 = hexAry.indexOf(hex);
@@ -382,7 +389,7 @@ export class PathCard extends Tile {
         hex1.card = card;
         card.moveTo(hex1)
       }
-      move1(card, ndx0 + 1);
+      move1(this, ndx0 + 1);
     }
   }
 
@@ -397,14 +404,22 @@ export class PathCard extends Tile {
     while (PathCard.cardByName.has(id)) { id = `${rsid}#${++n}` }
     return id;
   }
-  static makeAllCards(table: Table, rowcol: { row?: number, col?: number }, ...prgs: PRgen[]) {
-    CardHex.allCardHex.length = 0; // clear before we make all the new ones.
+  static makeCardSources(table: Table, rowcol: { row?: number, col?: number }) {
+    CardHex.allCardHex.length = 0; // clear before we make all the new CardHex.
     const { row, col } = { row: 1.9, col: 1, ...rowcol }
     table.makeSourceAtRowCol(PathCard.makeSource, 'discards', row + 1.8, col, .3, CardHex)
     PathCard.discard = PathCard.source;
     ;(PathCard.discard as any as NamedContainer).Aname = 'PathCardDiscard';
     table.makeSourceAtRowCol(PathCard.makeSource, 'cardDeck', row + 0.0, col, .3, CardHex)
 
+    const cardback = table.cardBack = new CardBack(table); // it a Button, mostly.
+    cardback.moveTo(PathCard.source.hex as Hex1); // set position above source.hex
+    cardback.moveTo(undefined);
+    cardback.on(S.click, (evt) => cardback.clicked(evt), cardback )
+    return [PathCard.source, PathCard.discard];
+  }
+
+  static makeAllCards(...prgs: PRgen[]) {
     if (prgs.length === 0) prgs = [new PRgen()];
     PathCard.cardByName.clear();
     prgs.forEach(prg => {
@@ -412,11 +427,6 @@ export class PathCard extends Tile {
       prg.ruleSpecs.map(ps => new PathCard(ps))
     })
     this.initialSort(PathCard.allCards, PathCard.source)
-
-    const cardback = table.cardBack = new CardBack(table); // it a Button, mostly.
-    cardback.moveTo(PathCard.source.hex as Hex1); // set position above source.hex
-    cardback.moveTo(undefined);
-    cardback.on(S.click, (evt) => cardback.clicked(evt), cardback )
   }
 
   static initialSort(cards = PathCard.allCards, source = PathCard.source) {

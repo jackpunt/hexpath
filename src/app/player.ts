@@ -89,8 +89,15 @@ export class Player extends PlayerLib {
 
   updateNetCounters() {
     this.allNetworks.sort((a, b) => b.length - a.length); // descending length
-    this.netMaxLenCounter.updateValue(this.allNetworks[0].length)
-    this.netNumNetsCounter.updateValue(this.allNetworks.length)
+    const nn = this.allNetworks.length;
+    if (nn > 0) {
+      this.netMaxLenCounter.updateValue(this.allNetworks[0].length)
+      this.netNumNetsCounter.updateValue(nn)
+    }
+  }
+  // here because: used by PathCard & PathTile; rack pro'ly belongs to this player
+  rackSwap(fromHex: Hex1, toHex: Hex1, rack: Hex1[]) {
+    return rack.includes(fromHex) && rack.includes(toHex)
   }
 
   readonly tileRack: Hex2[] = [];
