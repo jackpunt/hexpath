@@ -1,5 +1,5 @@
-import { stime } from "@thegraid/common-lib";
-import { newPlanner, NumCounterBox, Player as PlayerLib } from "@thegraid/hexlib";
+import { removeEltFromArray, stime } from "@thegraid/common-lib";
+import { newPlanner, NumCounterBox, Player as PlayerLib, type Hex1, type NumCounter } from "@thegraid/hexlib";
 import { GamePlay } from "./game-play";
 import { CardPanel, PathCard } from "./path-card";
 import { PathHex2 as Hex2 } from "./path-hex";
@@ -73,6 +73,24 @@ export class Player extends PlayerLib {
     cc.x = wide - 2 * gap; cc.y = cc.high / 2 + 2 * gap;
     cc.boxAlign('right');
     this.panel.addChild(cc);
+
+    const nn = this.netNumNetsCounter = new NumCounterBox('net', 0, 'violet', fs)
+    nn.x = 2 * gap; nn.y = cc.high / 2 + 2 * gap;
+    nn.boxAlign('left');
+    this.panel.addChild(nn);
+
+    const mnl = this.netMaxLenCounter = new NumCounterBox('net', 0, 'violet', fs)
+    mnl.x = nn.wide + 3 * gap; mnl.y = cc.high / 2 + 2 * gap;
+    mnl.boxAlign('left');
+    this.panel.addChild(mnl);
+  }
+  netMaxLenCounter!: NumCounter;
+  netNumNetsCounter!: NumCounter;
+
+  updateNetCounters() {
+    this.allNetworks.sort((a, b) => b.length - a.length); // descending length
+    this.netMaxLenCounter.updateValue(this.allNetworks[0].length)
+    this.netNumNetsCounter.updateValue(this.allNetworks.length)
   }
 
   readonly tileRack: Hex2[] = [];
@@ -115,5 +133,72 @@ export class Player extends PlayerLib {
   /** for ScenarioParser.saveState() */ // TODO: code cards with index, or string->card
   get cards() { return this.cardRack.map(hex => hex.tile) }
 
+  get myTiles() { return PathTile.allPathTiles.filter(tile => tile.hex?.isOnMap && tile.player === this) }
+  // Each of myTiles has a Network that appears in allNetworks:
+  // ASSERT: tileToNetwork.values.forEach(net => allNetworks.includes(net));
+  tileToNetwork = new Map<PathTile, Network>();
+  // Each of myTiles appears exactly ONCE in allNetworks.
+  // ASSERT: elements are disjoint; concat(...allNetworks) === myTiles
+  allNetworks: Array<Network> = [];
+
+  /** map each Tile [owned by this Player] to a Network */
+  mapAllNetworks() {
+    this.tileToNetwork.clear();
+    this.allNetworks.length = 0;
+    this.myTiles.forEach(tile => this.addToNetwork(tile))
+    this.updateNetCounters();
+  };
+
+  adjustNetwork(tile: PathTile, add = tile.hex?.isOnMap && tile.player == this) {
+    if (add) {
+      // if Shift-drop moves tile to new hex:
+      if (this.tileToNetwork.get(tile)) this.removeNetwork(tile);
+      // add tile to this Player's network:
+      this.addToNetwork(tile);
+    } else {
+      // remove tile from this Player's network:
+      this.removeNetwork(tile)
+    }
+    this.updateNetCounters();
+  }
+
+  removeNetwork(tile: PathTile) {
+    const tileNet = this.tileToNetwork.get(tile);
+    if (tileNet) {
+      removeEltFromArray(tile, tileNet)
+      this.tileToNetwork.delete(tile)
+      if (tileNet.length === 0) {
+        removeEltFromArray(tileNet, this.allNetworks)
+      }
+    }
+  }
+
+  /** when ADD tile to map */
+  addToNetwork(tile: PathTile) {
+    // assert: all OWNED tiles are on a Hex1 (even if not tile.isOnMap)
+    const myLinks = (tile: PathTile) => (tile.hex as Hex1).linkHexes.filter(h => h.tile?.player == this) as HexT[];
+    const myAdjTiles = (tile: PathTile) => myLinks(tile).map(hext => hext.tile);
+    const newNet = (tile: PathTile) => {
+      const net = [tile];
+      this.allNetworks.push(net);
+      this.tileToNetwork.set(tile, net);
+      return net;
+    }
+    const tileN = this.tileToNetwork.get(tile) ?? newNet(tile);
+    // merge all linked tiles into one Network
+    const adjTiles = myAdjTiles(tile)
+    adjTiles.forEach(tAdj => {
+      const adjNet = this.tileToNetwork.get(tAdj); // expect at least [tAdj]
+      // first time we find an element of adjNet, move ALL of them to tileN
+      if (adjNet && this.allNetworks.includes(adjNet) && adjNet !== tileN) {
+        removeEltFromArray(adjNet, this.allNetworks); // remove once
+        tileN.push(...adjNet);
+        adjNet.forEach(netT => this.tileToNetwork.set(netT, tileN)); // point to new network
+      }
+      // this.tileToNetwork.set(tAdj, tileN); // adjNet has been merged into tileN
+    })
+  };
 
 }
+type HexT = Hex1 & { tile: PathTile } // with definite PathTile
+type Network = Array<PathTile>;

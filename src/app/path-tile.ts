@@ -1,11 +1,12 @@
 import { C } from "@thegraid/common-lib";
 import { CenterText, CircleShape, PaintableShape } from "@thegraid/easeljs-lib";
-import { type DragContext, H, Hex2 as Hex2Lib, HexShape, type IHex2, MapTile, Meeple, Player, type Table, TileSource, TP } from "@thegraid/hexlib";
+import { type DragContext, H, Hex2 as Hex2Lib, HexShape, type IHex2, MapTile, Meeple, Player as PlayerLib, type Table, TileSource, TP } from "@thegraid/hexlib";
 import { AfHex } from "./af-hex";
 import type { GameState } from "./game-state";
 import { CardHex, type PathRule } from "./path-card";
 import { type PathHex as Hex1, type PathHex2 as Hex2 } from "./path-hex";
 import { type PathTable } from "./path-table";
+import type { Player } from "./player";
 
 const Hdirs = TP.useEwTopo ? H.ewDirs : H.nsDirs;
 
@@ -68,7 +69,7 @@ export class PathTile extends MapTile {
     this.valueText = (v < 0) ? '' :`${v}`;
   }
 
-  constructor(Aname: string, player: Player | undefined, afhex: AfHex) {
+  constructor(Aname: string, player: PlayerLib | undefined, afhex: AfHex) {
     super(Aname, player);
     this.afhex = afhex;
     this.addChild(this.afhex);
@@ -299,6 +300,7 @@ export class PathTile extends MapTile {
       }
     }
     super.placeTile(toHex, payCost);
+    ;(this.player as Player).adjustNetwork(this);
   }
 }
 export class PathMeep extends Meeple {

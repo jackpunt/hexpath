@@ -188,11 +188,13 @@ class PRgen {
     const evN = ev.map((len, nth) => {
       if (len >= n) {
         const nTile = hex.nextHex(Hdirs[nth], len)?.tile;
-        const plyr = tile.player;
+        const plyr = tile.player as Player, nPlyr = nTile?.player as Player;
         if (!plyr) { debugger; return 0 }
-        if (nTile && nTile.player !== plyr) {
+        if (nTile && nPlyr !== plyr) {
           if (commit) {
-            nTile.setPlayerAndPaint(plyr)
+            nTile.setPlayerAndPaint(plyr);
+            plyr.adjustNetwork(nTile);
+            nPlyr?.mapAllNetworks();
           }
           return len; // successful attack
         }
