@@ -1,4 +1,4 @@
-import { C, S, stime } from "@thegraid/common-lib";
+import { C, permute, S, stime } from "@thegraid/common-lib";
 import { CenterText, NamedContainer, RectShape, type DragInfo, type NamedObject, type Paintable } from "@thegraid/easeljs-lib";
 import { Container, DisplayObject, Graphics, MouseEvent } from "@thegraid/easeljs-module";
 import { H, Tile, TileSource, type DragContext, type HexDir, type IHex2 } from "@thegraid/hexlib";
@@ -243,7 +243,7 @@ export class PathCard extends Tile {
   /** out-of-scope parameter to this.makeShape(); vs trying to tweak TP.hexRad for: get radius() */
   static nextRadius = PathCard.onScreenRadius; // when super() -> this.makeShape()
   _radius = PathCard.nextRadius;           // when PathCard.constructor eventually runs
-  override get radius() { return this._radius }
+  override get radius() { return (this?._radius !== undefined) ? this._radius : PathCard.nextRadius }
   override get isMeep() { return true; }
   declare gamePlay: GamePlay;
   rule!: PathRule
@@ -271,6 +271,7 @@ export class PathCard extends Tile {
   constructor(rs: RuleSpec, size?: number) {
     if (size !== undefined) PathCard.nextRadius = size; // set before super calls makeShape()
     super(PathCard.uniqueId(rs.id))      // Note: may need to tweak cache/reCache algo
+    this.nameText.y += this.radius * .12;
     this.rule = new PathRule(this, rs)
     this.addChildren(rs)
     PathCard.cardByName.set(this.Aname, this);
@@ -279,7 +280,7 @@ export class PathCard extends Tile {
 
   // invoked by constructor.super()
   override makeShape(): RectShape {
-    return new CardShape('lavender', '', PathCard.nextRadius);
+    return new CardShape('lavender', '', this.radius);
   }
 
   // descr=rs.d, cost=rs.c, value=-1
@@ -407,10 +408,10 @@ export class PathCard extends Tile {
   static makeCardSources(table: Table, rowcol: { row?: number, col?: number }) {
     CardHex.allCardHex.length = 0; // clear before we make all the new CardHex.
     const { row, col } = { row: 1.9, col: 1, ...rowcol }
-    table.makeSourceAtRowCol(PathCard.makeSource, 'discards', row + 1.8, col, .3, CardHex)
+    table.makeSourceAtRowCol(PathCard.makeSource, 'discards', row + 1.8, col, { x: 0, y: .6 }, CardHex)
     PathCard.discard = PathCard.source;
     ;(PathCard.discard as any as NamedContainer).Aname = 'PathCardDiscard';
-    table.makeSourceAtRowCol(PathCard.makeSource, 'cardDeck', row + 0.0, col, .3, CardHex)
+    table.makeSourceAtRowCol(PathCard.makeSource, 'cardDeck', row + 0.0, col, { x: 0, y: .6 }, CardHex)
 
     const cardback = table.cardBack = new CardBack(table); // it a Button, mostly.
     cardback.moveTo(PathCard.source.hex as Hex1); // set position above source.hex
@@ -430,9 +431,10 @@ export class PathCard extends Tile {
   }
 
   static initialSort(cards = PathCard.allCards, source = PathCard.source) {
-    const levels = [1, 2, 3].map(level =>
+    permute(cards)
+    const levels = [3, 2, 1].map(level =>
       cards.filter(card => card.rule.level == level)
-    ).reverse()
+    )
 
     const stacks = levels.map((ary, nth, lvls) => {
       const n = (ary.length + 1) / 2;

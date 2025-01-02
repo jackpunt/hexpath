@@ -1,4 +1,4 @@
-import { C } from "@thegraid/common-lib";
+import { C, type XY } from "@thegraid/common-lib";
 import { ParamGUI, type DragInfo, type NamedObject, type ParamItem } from "@thegraid/easeljs-lib";
 import { Stage, type Container, type DisplayObject } from "@thegraid/easeljs-module";
 import { Hex2, Table, Tile, TileSource, TP, type DragContext, type IHex2 } from "@thegraid/hexlib";
@@ -42,14 +42,17 @@ export class PathTable extends Table {
   }
 
   makeSourceAtRowCol<T extends Tile>(ms: (hex: Hex2) => TileSource<T>,
-    name = 'tileSource', row = 1, col = 1, dy = 0,
+    name = 'tileSource', row = 1, col = 1, counterXY?: Partial<XY>,
     hexC = this.hexC,
   ) {
     const hex = this.newHex2(row, col, name, hexC) as IHex2;
     this.setToRowCol(hex.cont, row, col); // on hexCont!??
     const source = ms(hex);
     source.permuteAvailable();
-    source.counter.y += TP.hexRad * dy;
+    const { x: dx, y: dy } = { ... { x: .5, y: .5 }, ...counterXY }
+    const { x, y, width, height } = hex.cont.getBounds()
+    source.counter.x = hex.cont.x + (x + dx * width);
+    source.counter.y = hex.cont.y + (y + dy * height);
     hex.distText.y = 0;
     return source;
   }
@@ -59,7 +62,7 @@ export class PathTable extends Table {
     super.layoutTable2();
     PathTile.makeAllTiles();      // populate PathTile.allTiles
     const toprow = Math.min(1, TP.nHexes - 5), lefcol = 1;
-    this.makeSourceAtRowCol(PathTile.makeSource, 'tileBag', toprow, lefcol + 1.3, +.6);
+    this.makeSourceAtRowCol(PathTile.makeSource, 'tileBag', toprow, lefcol + 1.3, { y: +1.2 });
     PathTile.source.nextUnit();   // TODO: decide how many to expose; & saveState.
 
     const [source, discard] = PathCard.makeCardSources(this, {row: toprow + .9, col: lefcol})

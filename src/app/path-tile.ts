@@ -73,6 +73,8 @@ export class PathTile extends MapTile {
     super(Aname, player);
     this.afhex = afhex;
     this.addChild(this.afhex);
+    this.nameText.y = this.radius * .66;
+    this.addChild(this.nameText);        // re-add above afHex
     this.addChild(this.plyrDisk);
     this.addChild(this._valueText);
     this.setPlayerAndPaint(player);
