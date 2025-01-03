@@ -6,7 +6,7 @@ import type { GameState } from "./game-state";
 import { CardHex, type PathRule } from "./path-card";
 import { type PathHex as Hex1, type PathHex2 as Hex2 } from "./path-hex";
 import { type PathTable } from "./path-table";
-import type { Player } from "./player";
+import { Player } from "./player";
 
 const Hdirs = TP.useEwTopo ? H.ewDirs : H.nsDirs;
 
@@ -168,7 +168,10 @@ export class PathTile extends MapTile {
    * @param rot [this.rotated]
    */
   showRuleValues(hex: Hex2, rot = this.rotated) {
-    const rules = this.rulesFromTable()
+    const player = Player
+    const plyrRules = player.allPlayers.map(p => p.cardRack.filter(h => h.card).map(h => h.card!.rule))
+    const tableRules = this.rulesFromTable();
+    const rules = tableRules.concat(...plyrRules)
     const rvar = this.ruleValueAtRotation(rot, hex, false, rules);  // setting card.ruleValueAtRot
     rules.map((rule, n) => rule.card.value = rvar[n])
   }

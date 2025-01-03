@@ -90,7 +90,7 @@ export class GameSetup extends GameSetupLib {
   placeTilesOnMap() {
     this.hexMap.forEachHex(hex => {
       const tile = PathTile.source.takeUnit();
-      tile.placeTile(hex as Hex1);
+      tile?.placeTile(hex as Hex1);
       return;
     })
     this.update()

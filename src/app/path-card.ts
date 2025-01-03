@@ -7,7 +7,7 @@ import { type GamePlay } from "./game-play";
 import type { GameState } from "./game-state";
 import { PathHex2 as Hex2, type PathHex as Hex1, type HexMap2 } from "./path-hex";
 import { type PathTable, type PathTable as Table } from "./path-table";
-import type { PathTile } from "./path-tile";
+import { PathTile } from "./path-tile";
 import type { Player } from "./player";
 import { TP } from "./table-params";
 import type { CountClaz } from "./tile-exporter";
@@ -22,7 +22,7 @@ type Efunc = (tile: PathTile, hex: Hex1, dir: HexDir) => number;
 type Rtype = 'edge' | 'own' | 'spcl' | 'atk'; // special: 'veto'
 /** id: ident, c: cost, t: type, d: description, vf: value_f, ef: edge_f, l: level */
 type RuleSpec = {
-  id: string, c: number, t?: Rtype, d?: string, vf?: Vfunc, ef?: Efunc, l?: number,
+  id: string, c: number, t?: Rtype, d?: string, e?: string, vf?: Vfunc, l?: number,
 }
 const Hdirs = TP.useEwTopo ? H.ewDirs : H.nsDirs;
 const Hdir2 = Hdirs.slice(0, 3); // half of Hdirs
@@ -33,6 +33,7 @@ const Hdir2 = Hdirs.slice(0, 3); // half of Hdirs
 export class PathRule implements NamedObject {
   Aname?: string | undefined;
   text = ''; // description
+  etext= ''; // eval descr
   cost = 0; // purchase or placement cost, value multiplier
   type: Rtype = 'edge'; //vs 'own'
   level = 1; // [cost]
@@ -42,9 +43,9 @@ export class PathRule implements NamedObject {
     this.text = rs.d ?? rs.id;
     this.cost = rs.c;
     this.level = rs.l ?? rs.c;
-    if (rs.t) this.type = rs.t ?? (this.text.startsWith('-own-') ? 'own' : 'edge');    // edge | own | atk | spcl
+    this.type = rs.t ?? 'edge';    // edge | own | atk | spcl
+    this.etext = rs.e ?? (this.type == 'edge' ? `Σ match` : this.type == 'own' ? `Σ adj` : '');
     if (rs.vf) this.valuef = rs.vf;
-    if (rs.ef) this.edgef = rs.ef;
   }
 
   /** apply ef to edge/join in each dir; return [ef(NE), ef(E),...,ef(NW)] */
@@ -204,6 +205,7 @@ class PRgen {
     const sum = Math.sum(...evN)
     return sum > 0 ? sum : -1;
   }
+  sigma = 'Σ';
 
   ruleSpecs: RuleSpec[] = [
     // each edge matches 2 (of the 3) factors:
@@ -215,13 +217,13 @@ class PRgen {
     { id: 'colors', c: 1, vf: (t, h) => this.vfunc_match_scf(1, t, h), d: 'All colors match' },
     { id: 'fills', c: 1, vf: (t, h) => this.vfunc_match_scf(2, t, h), d: 'All fills match' },
     // own
-    { id: 'other1', c: 2, l: 1, vf: (t, h) => this.vfunc_adj_other_n(1, t, h), d: '-own-\n1+ other adjacent'},
-    { id: 'adj1', c: 2, l: 1, vf: (t, h) => this.vfunc_adj_own_n(1, t, h), d: '-own-\n1+ own adjacent'},
-    { id: 'adj2', c: 2, vf: (t, h) => this.vfunc_adj_own_n(2, t, h), d: '-own-\n2+ adjacent'},
-    { id: 'line3', c: 2, vf: (t, h) => this.vfunc_make_line(3, t, h), d: '-own-\nline of 3+' },
-    { id: 'fill-in', c: 2, vf: (t, h) => this.vfunc_fill_in(2, t, h), d: '-own-\nfill-in gap' },
+    { id: 'other1', c: 2, l: 1, vf: (t, h) => this.vfunc_adj_other_n(1, t, h), d: 'adjacent 1+ other', t: 'own' },
+    { id: 'adj1', c: 2, l: 1, vf: (t, h) => this.vfunc_adj_own_n(1, t, h), d: 'adjacent 1+ own', t: 'own' },
+    { id: 'adj2', c: 2, vf: (t, h) => this.vfunc_adj_own_n(2, t, h), d: 'adjacent 2+ own', t: 'own' },
+    { id: 'line3', c: 2, vf: (t, h) => this.vfunc_make_line(3, t, h), d: 'line of 3+', t: 'own' },
+    { id: 'fill-in', c: 2, vf: (t, h) => this.vfunc_fill_in(2, t, h), d: 'fill-in gap', t: 'own' },
     // veto
-    { id: 'veto', c: 2, vf: (t, h) => 0, d: 'VETO\n---->' },
+    { id: 'veto', c: 2, vf: (t, h) => 0, d: 'VETO\n---->', t: 'spcl' },
     // status rules: examine state of the board to have effects, give point
     { id: 'attack3', t: 'atk', c: 3, vf: (t, h, c) => this.vfunc_atk_n(3, t, h, c), d: '-attack-\nline of 3+'},
   ]
@@ -251,6 +253,7 @@ export class PathCard extends Tile {
 
   cost!: number;           // set once: rs.c
   cText!: CenterText
+  eText!: CenterText
 
   _value?: number;         // set per tile placement
   vText!: CenterText
@@ -273,6 +276,8 @@ export class PathCard extends Tile {
     super(PathCard.uniqueId(rs.id))      // Note: may need to tweak cache/reCache algo
     this.nameText.y += this.radius * .12;
     this.rule = new PathRule(this, rs)
+    const colors = { edge: 'lavender', own: 'yellow', atk: 'pink', spcl: C.grey224, }
+    this.paint(colors[this.rule.type])
     this.addChildren(rs)
     PathCard.cardByName.set(this.Aname, this);
     this.homeHex = PathCard.discard.hex; // unitCollision will stack if necessary.
@@ -286,9 +291,8 @@ export class PathCard extends Tile {
   // descr=rs.d, cost=rs.c, value=-1
   addChildren(rs: RuleSpec) {
     const { x, y, width, height } = this.getBounds()
-    const rad = width * .5, textX = rad * .7, textY = rad * .95;
-    const ytop = -rad * (3.5 / 2.5);
-    const dSize = rad * .45;
+    const rad = width * .5, textX = width / 2 * .72, textY = height / 2 * .72;
+    const dSize = Math.min(height, width) * .2
     const dText = this.dText = new CenterText(rs.d ?? rs.id, dSize)
     dText.y = y + dSize;             // descr.textBaseline = 'top'
     dText.lineWidth = width * .9
@@ -298,6 +302,11 @@ export class PathCard extends Tile {
     const cText = this.cText = new CenterText(rs.c > 0 ? `${rs.c}` : '', dSize);
     cText.x = -textX; cText.y = textY;
     this.addChild(cText);
+
+    const estr = this.rule.etext;
+    const eText = new CenterText(estr, dSize)
+    eText.y = textY - dSize * 1.1;
+    this.addChild(eText);
 
     const vText = this.vText = new CenterText('', dSize)
     vText.x = +textX; vText.y = textY;
@@ -432,22 +441,34 @@ export class PathCard extends Tile {
 
   static initialSort(cards = PathCard.allCards, source = PathCard.source) {
     permute(cards)
-    const levels = [3, 2, 1].map(level =>
+    const levels = [1, 2, 3].map(level =>
       cards.filter(card => card.rule.level == level)
     )
+    console.log(`PathCard.initialSort: levels=`, levels.map(ary => ary.slice()))
+    // [[levelNdx, num], ...] // !num --> all
+    const plans: [ndx: number, len: number][][] = [
+      [[0, 2]],
+      [[2, 0], [1, levels[1].length / 2], [0, 5]],
+      [[1, 0], [0, 2]],
+      [[0, 0]],
+    ]
 
-    const stacks = levels.map((ary, nth, lvls) => {
-      const n = (ary.length + 1) / 2;
-      return ary.slice().concat(... lvls.slice(nth + 1).map(aryN => aryN.splice(0, n)))
+    const stacks = plans.map(plan => {
+      const rv: PathCard[] = []
+      return rv.concat(...plan.map(([ndx, len]) => levels[ndx].splice(0, len || levels[ndx].length)))
     }).reverse()
+    stacks.forEach(s => permute(s))
     // enqueue all the stacks on source:
     stacks.forEach(stack => stack.forEach(card => source.availUnit(card, true)))
+    // filterUnits(allUnits) reports units in the order they were added:
+    console.log(stime(`PathCard.initialSort: stacks=`), stacks, 'source=', source.filterUnits().map(u => `${u.rule.level}:${u.Aname}`))
+    console.log(`PathCard.initialSort: levels=`, levels)
   }
 
   static reshuffle() {
     // assert: src.sourceHexUnit === undefined [else we would not be shuffling...]
     const disc = PathCard.discard, src = PathCard.source;
-    const discarded = disc.filterUnits() // extract all available units
+    const discarded = disc.filterUnits() // extract all available units (with sourceHexUnit)
     discarded.forEach(card => {
       disc.deleteUnit(card);
       src.availUnit(card);
@@ -479,7 +500,7 @@ export class CardBack extends PathCard {
   }
 
   constructor(public table: Table) {
-    super({ id: 'cardback', c: 0, d: CardBack.oText })
+    super({ id: 'cardback', c: 0, d: CardBack.oText, e: '' })
     this.baseShape.paint(CardBack.bColor)
   }
   // makeDragable(), but do not let it actually drag:
@@ -568,7 +589,10 @@ export class CardPanel extends NamedContainer {
 
   /** fill hexAry with row of CardHex above panel */
   fillAryWithCardHex(table: Table, panel: Container, hexAry: IHex2[], row = 0, ncols = 4) {
-    const hexes = table.hexesOnPanel(panel, row, ncols, CardHex, { gap: .1 });
+    const { w } = table.hexMap.xywh; // hex WH
+    const { width } = (new CardShape()).getBounds(); // PathCard.onScreenRadius
+    const gap = .1 + (width / w) - 1;
+    const hexes = table.hexesOnPanel(panel, row, ncols, CardHex, { gap });
     hexes.forEach((hex, n) => { hex.Aname = `C${n}`})
     hexAry.splice(0, hexAry.length, ...hexes);
   }
