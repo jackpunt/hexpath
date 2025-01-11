@@ -102,12 +102,13 @@ export class PathTile extends MapTile {
   }
 
   static makeAllTiles() {
-    AfHex.makeAllAfHex();  // make them all once: (3,2,1) => 64 Tiles
+    const allSCF = AfHex.makeAllAfSCF();
+    AfHex.makeAllAfHex(allSCF);  // make them all once: (3,2,1) => 64 Tiles
     // GameSetup.initialize() -> AfHex.makeAllAfHex()
     // GameSetup.startScenario() -> layoutTable() -> makeAllPlayers()
     // make a Tile for each AfHex.
     AfHex.allAfHex.forEach((afhex, n) => {
-      const tile = new PathTile(`T${n}`, undefined, afhex);
+      const tile = new PathTile(`T${n}`, undefined, afhex.clone());
     })
   }
 
@@ -322,6 +323,20 @@ export class PathTile extends MapTile {
     ;(this.player as Player).adjustNetwork(this);
   }
 }
-export class PathMeep extends Meeple {
-  loc = [1,2];
+
+/** resize/repaint Tiles for TileExporter */
+export class PrintTile extends PathTile {
+  static rotateBack = 0;
+  static colorBack = C.WHITE;
+  constructor(Aname: string, color: string, afhex: AfHex) {
+    const TP_hexRad = TP.hexRad, printRad = 200;
+    TP.hexRad = printRad;
+    super(Aname, undefined, afhex.clone(undefined, printRad))
+    TP.hexRad = TP_hexRad;
+    this.paintBase(color);
+  }
+  override paint(colorn = C.BLACK, force?: boolean): void {
+    this.plyrDisk.paint(C.transparent, true)
+    this.paintBase(colorn)
+  }
 }

@@ -64,7 +64,7 @@ export class ImageGrid {
     width: 3300, height: 5100, nrow: 5, ncol: 7,
     x0: 576, y0: 451,        // 245 + 412/2 = 451  (5099 - 245 = 4854) !~== 4854
     delx: 357, dely: 413.1,  // 1.19*300=357; 357/H.sqrt_3_2 = 412.2 === (2308 - 247)/5 == 2061 = 412.2
-    dpi: 1, double: false,
+    dpi: 1, double: true,
   }
 
   /** 8 rows of 8 columns */

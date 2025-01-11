@@ -52,13 +52,13 @@ class AfMark extends Shape implements NamedObject {
    * - TP.afWide: [3] pixels of line width when AF.L (per TP.hexRad/60)
    * - TP.afSquare: [false] true to shrink depth to be afSize / 2
    */
-  drawAfMark(afs: AF.Shape, afc: AF.Color, aff: AF.Fill) {
+  drawAfMark(afs: AF.Shape, afc: AF.Color, aff: AF.Fill, hexRad = TP.hexRad) {
     const color = AF.colorn[afc], isf = (aff == AF.F);
-    const wl = TP.afWide * TP.hexRad / 60, wl2 = wl / 2; // line thickness (StrokeStyle)
-    const wm = TP.afSize * TP.hexRad - wl2, w2 = wm / 2; // size of mark (esp: width)
+    const wl = TP.afWide * hexRad / 60, wl2 = wl / 2; // line thickness (StrokeStyle)
+    const wm = TP.afSize * hexRad - wl2, w2 = wm / 2; // size of mark (esp: width)
     // ~eccentricity: multiply w2
     const ec = (typeof TP.afSquare === 'number') ? TP.afSquare : (TP.afSquare ? .87 : 1.35);
-    const k = 0, y0 = k - TP.hexRad * H.sqrt3_2;  // offset to top edge
+    const k = 0, y0 = k - hexRad * H.sqrt3_2;  // offset to top edge
     const y1 = ec * w2 + (isf ? wl2 : 0) + y0; // make solids a bit larger b/c lack of line thickness
     const ar = (1 + (ec - 1) * .6) * w2 + wl2; // make arc a bit larger b/c arc doesn't use y1
     const g = this.graphics
@@ -78,9 +78,9 @@ class AfMark extends Shape implements NamedObject {
     return [afs, afc, aff] as SCF;
   }
   // draw in N orientation, then rotate to dir;
-  constructor(dir: HexDir, shape: AF.Shape, color: AF.Color, fill: AF.Fill) {
+  constructor(dir: HexDir, shape: AF.Shape, color: AF.Color, fill: AF.Fill, hexRad = TP.hexRad) {
     super();
-    this.scf = this.drawAfMark(shape, color, fill);
+    this.scf = this.drawAfMark(shape, color, fill, hexRad);
     this.Aname = this.name = `AfMark:${this.scf_id}`;  // for debug, not production
     this.mouseEnabled = false;
     this.rotation = H.dirRot[dir];
@@ -107,46 +107,48 @@ export class AfHex extends NamedContainer implements Record<AfKey, string[]> {
    * @param aShapes 6 shapes from AF.Shape
    * @param aColors 6 colors from AF.Color
    * @param aFills  6 fills from AF.Fill
-   * @param Aname
+   * @param hexRad [TP.hexRad] size/scale of the AfMarks & mask for this AfHex
    */
   constructor(
     public aShapes: AF.Shape[],
     public aColors: AF.Color[],
     public aFills: AF.Fill[],
-    Aname = ``,
+    public hexRad = TP.hexRad,
   ) {
+    const Aname = `${aShapes.join('')}:${aColors.join('')}"${aFills.join('')}`;
     super(Aname)
     const edgeDirs = TP.useEwTopo ? H.ewDirs : H.nsDirs;
     // make AfMark(shape,color,fill0 for each of six sides
     this.afMarks = edgeDirs.map((dir, ndx) => {
-      const scf = AfHex.afKeys.map(key => this[key][ndx]) as SCF;
-      const afm = new AfHex.afMark(dir, ...scf);
+      const [s, c, f] = AfHex.afKeys.map(key => this[key][ndx]) as SCF;
+      const afm = new AfHex.afMark(dir, s, c, f, hexRad);
       return this.addChild(afm)
     })
     this._scf = this.afMarks.map(m => m.scf);
     this.mouseEnabled = false;
-    this.mask = this.makeMask();
+    this.mask = this.makeMask(hexRad);
     this.reCache()
   }
   afMarks!: AfMark[];
   _scf!: SCF[]
 
-  makeMask(rad = TP.hexRad) {
-    const cornerDirs = TP.useEwTopo ? H.nsDirs : H.ewDirs;
-    const cornerXY = (dir: HexDir, rad = TP.hexRad) => {
-      const deg = H.dirRot[dir], point = new Point(0, 0);
+  makeMask(hexRad = this.hexRad) {
+    /** corner on radial of given dir */
+    const cornerXY = (dir: HexDir, rad = hexRad, point = new Point(0, 0)) => {
+      const deg = H.dirRot[dir];
       const a = deg * H.degToRadians
       point.x += Math.sin(a) * rad;
       point.y -= Math.cos(a) * rad;
       return point;
     }
-    const lt = (g: Graphics, dir: HexDir, rad = TP.hexRad) => {
+    const lt = (g: Graphics, dir: HexDir, rad = this.hexRad) => {
       const p = cornerXY(dir, rad)
       return g.lt(p.x, p.y)
     }
+    const cornerDirs = TP.useEwTopo ? H.nsDirs : H.ewDirs;
     const p0 = cornerXY(cornerDirs[5])
     const g = new Graphics().mt(p0.x, p0.y) // vs ending with closePath()
-    cornerDirs.forEach(dir => lt(g, dir, rad))
+    cornerDirs.forEach(dir => lt(g, dir, hexRad))
     g.closePath(); // may be redundant...?
     return new Shape(g);
   }
@@ -158,9 +160,9 @@ export class AfHex extends NamedContainer implements Record<AfKey, string[]> {
     this.cache(-w / 2, -h / 2, w, h, scale)
   }
 
-  override clone() {
+  override clone(recursive?: boolean, hexRad = TP.hexRad) {
     // copy reference instance so it can be freely reused, rotated:
-    return new AfHex(this.aShapes, this.aColors, this.aFills, this.Aname);
+    return new AfHex(this.aShapes, this.aColors, this.aFills, hexRad);
   }
 
   _rotated = 0; // [0..6)
@@ -209,7 +211,7 @@ export class AfHex extends NamedContainer implements Record<AfKey, string[]> {
    * @param colors [ColorA] = [AF.R, AF.G, AF.B]
    * @param fills  [FillA]  = [AF.F, AF.L]
    */
-  static makeAllAfHex(nSCF = TP.afSCF,
+  static makeAllAfSCF(nSCF = TP.afSCF,
     shapes = AF.ShapeA,   // [AF.S, AF.T, AF.A],
     colors = AF.ColorA,   // [AF.R, AF.G, AF.B]
     fills = AF.FillA,     // [AF.F, AF.L]
@@ -224,37 +226,39 @@ export class AfHex extends NamedContainer implements Record<AfKey, string[]> {
       }
       return rv;
     }
-    const atsIn = build(ns, ...shapes);
-    const afcIn = build(nc, ...colors);
-    const affIn = build(nf, ...fills);
-    const atsPerm = AfHex.findPermutations(atsIn);
-    const afcPerm = AfHex.findPermutations(afcIn);
-    const affPerm = AfHex.findPermutations(affIn);
-    console.log(stime(`AfHex`, `.makeAllAfHex: atsPerm`), { atsPerm })
+    const afsIn = build(ns, ...shapes) as AF.Shape[];
+    const afcIn = build(nc, ...colors) as AF.Color[];
+    const affIn = build(nf, ...fills) as AF.Fill[];
+    const afsPerm = AfHex.findPermutations(afsIn) as AF.Shape[][];
+    const afcPerm = AfHex.findPermutations(afcIn) as AF.Color[][];
+    const affPerm = AfHex.findPermutations(affIn) as AF.Fill[][];
+    console.log(stime(`AfHex`, `.makeAllAfHex: afsPerm`), { afsPerm })
     console.log(stime(`AfHex`, `.makeAllAfHex: afcPerm`), { afcPerm })
     console.log(stime(`AfHex`, `.makeAllAfHex: affPerm`), { affPerm })
 
+    const allSCF: [AF.Shape[], AF.Color[], AF.Fill[]][] = [], allscf: string[] = []
+    // pick a random rotation of each factor:
+    // [3,3,2] -> 16 x 16 x 4 = 1024 generated. [3,2,2] -> 16 x 4 x 4 = 256
+    afsPerm.forEach((ats, ns) => {
+      const afsr = ats as AF.Shape[];
+      afcPerm.forEach((afc, nc) => {
+        const afcr = rotateAry(afc, Random.random(afcPerm.length)) as AF.Color[];
+        affPerm.forEach((aff, nf) => {
+          const affr = rotateAry(aff, Random.random(affPerm.length)) as AF.Fill[];
+          allSCF.push([afsr, afcr, affr])
+        })
+      })
+    })
+    return allSCF;
+  }
+  static makeAllAfHex(allSCF: [AF.Shape[], AF.Color[], AF.Fill[]][], hexRad = TP.hexRad) {
     AfHex.allAfHex.length = 0;
     AfHex.allAfHexMap.clear();
-    // pick a random rotation of each factor:
-    // expect 16 x 16 x 4 = 1024 generated.
-    for (let ats of atsPerm) {
-      let atsr = ats;// rotateAry(ats, Random.random(ats.length))
-      // rotated when placed on Hex2
-      let atss = atsr.join('');
-      for (let afc of afcPerm) {
-        let afcr = rotateAry(afc, Random.random(afcPerm.length))
-        let afcs = afcr.join('')
-        for (let aff of affPerm) {
-          let affr = rotateAry(aff, Random.random(affPerm.length))
-          let affs = affr.join('')
-          let afhex = new AfHex(atsr, afcr, affr, `${atss}:${afcs}:${affs}`);
-          afhex.Aname = `${atss}:${afcs}:${affs}`;
-          AfHex.allAfHexMap.set(afhex.Aname, afhex);
-          AfHex.allAfHex.push(afhex);
-        }
-      }
-    }
+    allSCF.forEach(([atsr, afcr, affr]) => {
+      let afhex = new AfHex(atsr, afcr, affr, hexRad);
+      AfHex.allAfHexMap.set(afhex.Aname, afhex);
+      AfHex.allAfHex.push(afhex);
+    })
     console.log(stime(`AfHex`, `.makeAllAfHex: allAfHex`), { allAfHex: AfHex.allAfHex });
   }
   static findPermutations(ary: any[]) {
