@@ -95,7 +95,6 @@ export class ImageGrid {
 
   constructor(makePageSpecs: () => PageSpec[], buttonId = 'makePage', label = 'MakePages') {
     this.setAnchorClick(buttonId, label, () => {
-      console.log(stime(this, `.makePages: clicked`))
       this.setAnchorClick(buttonId, 'Making...')
       setTimeout(() => {
         this.downloadPageSpecs(makePageSpecs());
