@@ -95,7 +95,12 @@ export class ImageGrid {
 
   constructor(makePageSpecs: () => PageSpec[], buttonId = 'makePage', label = 'MakePages') {
     this.setAnchorClick(buttonId, label, () => {
-      this.downloadPageSpecs(makePageSpecs());
+      console.log(stime(this, `.makePages: clicked`))
+      this.setAnchorClick(buttonId, 'Making...')
+      setTimeout(() => {
+        this.downloadPageSpecs(makePageSpecs());
+        this.setAnchorClick(buttonId, label)
+      }, 0);
     });
   }
 
@@ -157,9 +162,9 @@ export class ImageGrid {
     return cont.numChildren;
   }
 
-  setAnchorClick(id: string, text: string, onclick?: ((ev: MouseEvent) => void) | 'stop') {
+  setAnchorClick(id: string, label: string, onclick?: ((ev: MouseEvent) => void) | 'stop') {
     const anchor = document.getElementById(id) as HTMLAnchorElement;
-    anchor.innerHTML = `<button type="button">${text}</button>`;
+    anchor.innerHTML = `<button type="button">${label}</button>`;
     if (onclick === 'stop') { anchor.href = 'javascript:void(0);'; anchor.onclick = null; }
     else if (onclick) anchor.onclick = onclick;
   }
