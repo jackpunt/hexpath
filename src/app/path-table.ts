@@ -22,7 +22,7 @@ export class PathTable extends Table {
 
   // bgRect tall enough for 3 X 3.5 player panels
   override bgXYWH(x0?: number, y0?: number, w0?: number, h0 = 1, dw?: number, dh?: number): { x: number; y: number; w: number; h: number; } {
-    const { dxdc, dydr } = this.hexMap.xywh;
+    const { dxdc, dydr } = this.hexMap.xywh();
     const { height } = this.hexMap.mapCont.hexCont.getBounds(), h = height / dydr;
     const h1 = (Math.max(h, 3 * 3.5 + .5) - h);
     return super.bgXYWH(x0, y0, w0, h0 + h1, dw, dh)

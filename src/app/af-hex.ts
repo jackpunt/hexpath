@@ -141,8 +141,14 @@ export class AfHex extends NamedContainer implements Record<AfKey, string[]> {
       point.y -= Math.cos(a) * rad;
       return point;
     }
+    const minPt = { x: 0, y: 0 }, maxPt = { x: 0, y: 0 }
     const lt = (g: Graphics, dir: HexDir, rad = this.hexRad) => {
       const p = cornerXY(dir, rad)
+      // compute extrema (bounds)
+      minPt.x = Math.min(minPt.x, p.x)
+      minPt.y = Math.min(minPt.y, p.y)
+      maxPt.x = Math.max(maxPt.x, p.x)
+      maxPt.y = Math.max(maxPt.x, p.x)
       return g.lt(p.x, p.y)
     }
     const cornerDirs = TP.useEwTopo ? H.nsDirs : H.ewDirs;
@@ -150,14 +156,16 @@ export class AfHex extends NamedContainer implements Record<AfKey, string[]> {
     const g = new Graphics().mt(p0.x, p0.y) // vs ending with closePath()
     cornerDirs.forEach(dir => lt(g, dir, hexRad))
     g.closePath(); // may be redundant...?
-    return new Shape(g);
+    const maskShape = new Shape(g); // maskShape is not a child, setBounds on AfHex
+    this.setBounds(minPt.x, minPt.y, maxPt.x - minPt.x, maxPt.y - minPt.y)
+    return maskShape;
   }
 
   /** could be called from Tile.reCache() if that were necessary... */
   reCache(scale = TP.cacheTiles) {
     if (this.cacheID) this.uncache();
-    const { w, h } = Hex.xywh(); // with TP.useEwTopo
-    this.cache(-w / 2, -h / 2, w, h, scale)
+    const { x, y, width: w, height: h } = this.getBounds();
+    this.cache(x, y, w, h, scale)
   }
 
   override clone(recursive?: boolean, hexRad = TP.hexRad) {
