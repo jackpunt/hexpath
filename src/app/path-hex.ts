@@ -7,7 +7,7 @@ import type { PathTile } from "./path-tile";
 
 
 // Hex1 has get/set tile/meep -> _tile/_meep
-// Hex2Mixin.Hex2Impl has get/set -> setUnit(unit, isMeep)
+// Hex1 has get/set -> setUnit(unit, isMeep) & unitCollision(unit1, unit2)
 export class PathHex extends Hex1Lib {
 
   // maybe unnecessary to override, if we never use PathHex (as Hex1)

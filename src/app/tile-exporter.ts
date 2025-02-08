@@ -12,7 +12,6 @@ import { Player } from "./player";
 interface Tile extends DisplayObject {
   baseShape: DisplayObject;
   radius: number;
-  setPlayerAndPaint(player?: Player): void;
 }
 
 interface Claz extends Constructor<Tile> {
@@ -63,31 +62,23 @@ export class TileExporter {
   composeTile(claz: Constructor<Tile>, args: any[], gridSpec: GridSpec, color?: string  , edge: 'L' | 'R' | 'C' = 'C') {
     const cont = new Container();
 
-    const tile = new claz(...args) as TileLib, base = tile.baseShape as PaintableShape;
+    const tile = new claz(...args) as TileLib;
     this.setOrientation(tile, gridSpec);
-    color && tile.paint(color);  // was: [front/back] player && setPlayerAndPaint(player)
-    // TileShape indicates a MapTile [mostly?]
-    const backRad = (base instanceof TileShape) ? tile.radius * H.sqrt3_2 * (55 / 60) : 0;
-    const back = new CircleShape(C.WHITE, backRad);
+    color && tile.paint(color);
     const bleedShape = this.makeBleed(tile, gridSpec, edge)
-    cont.addChild(bleedShape, back, tile);
+    cont.addChild(bleedShape, tile);
 
     return cont;
   }
 
   makeBleed(tile: TileLib, gridSpec: GridSpec, edge: 'L' | 'R' | 'C' = 'C') {
-    const base = tile.baseShape as PaintableShape
-    const bleedShape = tile.makeShape(), bleed = gridSpec.bleed ?? 0;
-    bleedShape.rotation = tile.rotation;
-    const { x, y, width, height } = bleedShape.getBounds()
-    bleedShape.scaleX = (width + 2 * bleed) / width;
-    bleedShape.scaleY = (height + 2 * bleed) / height;
-    bleedShape.paint(base.colorn ?? C.grey, true);
+    const bleed = gridSpec.bleed ?? 0;
+    const bleedShape = tile.makeBleed(bleed)
 
     if (gridSpec.trimLCR) { // for close-packed shapes, exclude bleed on C edges
       // trim bleedShape to base.bounds; allow extra on first/last column of row:
       const dx0 = (edge === 'L') ? bleed : 0, dw = (edge === 'R') ? bleed : 0;
-      const { x, y, width, height } = base.getBounds(), dy = -3;
+      const { x, y, width, height } = tile.getBounds(), dy = -3;
       bleedShape.setBounds(x, y, width, height);
       bleedShape.cache(x - dx0, y - dy, width + dx0 + dw, height + 2 * dy);
     }
@@ -118,7 +109,7 @@ export class TileExporter {
           let backTile = undefined;
           if (claz.rotateBack !== undefined) {
             backTile = this.composeTile(claz, args, gridSpec, backColor, lcr);
-            const tile = backTile.getChildAt(2); // [bleed, back, tile]
+            const tile = backTile.getChildAt(1); // [bleed, tile]
             tile.rotation = claz.rotateBack;
           }
           backAryPagen.push(backTile);

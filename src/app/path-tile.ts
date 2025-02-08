@@ -1,6 +1,6 @@
 import { C } from "@thegraid/common-lib";
 import { CenterText, CircleShape, PaintableShape } from "@thegraid/easeljs-lib";
-import { type DragContext, H, Hex2 as Hex2Lib, HexShape, type IHex2, MapTile, Meeple, Player as PlayerLib, type Table, TileSource, TP } from "@thegraid/hexlib";
+import { type DragContext, H, Hex2 as Hex2Lib, HexShape, type IHex2, MapTile, Player as PlayerLib, type Table, TileSource, TP } from "@thegraid/hexlib";
 import { AfHex } from "./af-hex";
 import type { GameState } from "./game-state";
 import { CardHex, type PathRule } from "./path-card";

@@ -336,8 +336,9 @@ export class PathCard extends Tile {
   // discard (== gameState.cardDone) -> discard, table.cardPanel, player.cardRack
   override isLegalTarget(toHex: Hex2, ctx: DragContext): boolean {
     // Ok to move from player.cardRack but not to table.cardRack (unless == cardDone)
-    if ((ctx.gameState as GameState).notDoneTile(this, true) &&
-      (ctx.gameState.table as Table).cardRack.includes(toHex)) return false;
+    const gameState = ctx.gameState as GameState;
+    if (gameState.notDoneTile(this, true) &&
+      gameState.table.cardRack.includes(toHex)) return false;
     return true;
   }
 

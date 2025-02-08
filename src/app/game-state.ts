@@ -36,7 +36,13 @@ export class GameState extends GameStateLib {
     this.table.cardBack.dim(!!v)
     if (this.allDone) this.done();
   }
-  /** return true if given tile/card is the current doneTile/doneCard */
+
+  /**
+   * test if tile is special
+   * @param tile Tile or Card to compare to doneTile or doneCard;
+   * @param card [false] false: check tileDone; true: check cardDone
+   * @returns true if given tile/card is NOT the current tileDone/cardDone
+   */
   notDoneTile(tile: Tile, card = false) {
     return (card
       ? (this.cardDone && tile !== this.cardDone)
