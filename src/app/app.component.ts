@@ -3,6 +3,7 @@ import { Title } from '@angular/platform-browser';
 import { stime } from '@thegraid/common-lib';
 
 @Component({
+  standalone: false,
   selector: 'app-root',
   templateUrl: './app.component.html',
   styleUrl: './app.component.css'

@@ -9,6 +9,7 @@ import { GameSetup } from '../game-setup';
 // Our application main entry point.
 // StageComponent sets up KeyBinder and creates a new GameSetup(qParams)
 @Component({
+  standalone: false,
   selector: 'stage-comp',
   providers: [KeyBinder, Title],
   templateUrl: './stage.component.html',
