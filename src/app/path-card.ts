@@ -240,6 +240,7 @@ class PRgen {
 
 export class PathCard extends Tile {
   static get allCards() { return Array.from(this.cardByName.values()) }
+  static colorMap = { edge: 'lavender', own: 'yellow', atk: 'pink', spcl: C.grey224, };
   /** recompute if TP.hexRad has been changed */
   static get onScreenRadius() { return TP.hexRad * H.sqrt3 };
   /** out-of-scope parameter to this.makeShape(); vs trying to tweak TP.hexRad for: get radius() */
@@ -276,8 +277,7 @@ export class PathCard extends Tile {
     super(PathCard.uniqueId(rs.id))      // Note: may need to tweak cache/reCache algo
     this.nameText.y += this.radius * .12;
     this.rule = new PathRule(this, rs)
-    const colors = { edge: 'lavender', own: 'yellow', atk: 'pink', spcl: C.grey224, }
-    this.paint(colors[this.rule.type])
+    this.paint(PathCard.colorMap[this.rule.type])
     this.addChildren(rs)
     PathCard.cardByName.set(this.Aname, this);
     this.homeHex = PathCard.discard.hex; // unitCollision will stack if necessary.
@@ -285,7 +285,13 @@ export class PathCard extends Tile {
 
   // invoked by constructor.super()
   override makeShape(): RectShape {
-    return new CardShape('lavender', '', this.radius);
+    return new CardShape('lavender', C.BLACK, this.radius);
+  }
+
+  override makeBleed(bleed: number): DisplayObject {
+    const rv = super.makeBleed(bleed) as CardShape
+    rv.paint(C.BLACK)
+    return rv
   }
 
   // descr=rs.d, cost=rs.c, value=-1
@@ -500,9 +506,9 @@ export class CardBack extends PathCard {
     this.stage?.update()
   }
 
-  constructor(public table: Table) {
-    super({ id: 'cardback', c: 0, d: CardBack.oText, e: '' })
-    this.baseShape.paint(CardBack.bColor)
+  constructor(public table: Table, text = CardBack.oText, color = CardBack.bColor) {
+    super({ id: 'cardback', c: 0, d: text, e: '' })
+    this.baseShape.paint(color)
   }
   // makeDragable(), but do not let it actually drag:
   override isDragable(ctx?: DragContext): boolean {
@@ -512,9 +518,9 @@ export class CardBack extends PathCard {
     // do not move or place this card...
   }
   clicked(evt?: MouseEvent) {
-    if (this.table.gamePlay.gameState.cardDone) {
-      return;
-    }
+    if (!this.table) return; // printable CardBack...
+    if (this.table.gamePlay.gameState.cardDone) return;
+
     if (PathCard.source.numAvailable === 0) PathCard.reshuffle();
     const card = PathCard.source.nextUnit();  // card.moveTo(srchex)
     if (card) {

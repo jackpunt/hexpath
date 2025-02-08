@@ -4,7 +4,7 @@ import { Container, DisplayObject } from "@thegraid/easeljs-module";
 import { H, Tile as TileLib, TileShape } from "@thegraid/hexlib";
 import { AfHex } from "./af-hex";
 import { ImageGrid, PageSpec, type GridSpec } from "./image-grid";
-import { PathCard } from "./path-card";
+import { CardBack, PathCard } from "./path-card";
 import { PrintTile } from "./path-tile";
 import { Player } from "./player";
 // end imports
@@ -28,23 +28,28 @@ export class TileExporter {
 
   makeImagePages() {
     const u = undefined, p0 = Player.allPlayers[0], p1 = Player.allPlayers[1];
+    const pc = PathCard.colorMap;
     const cardSingle = [
-      ...PathCard.countClaz()// [count, claz, ...constructorArgs]
+      ...PathCard.countClaz(3), // [count, claz, ...constructorArgs]
+      [0, CardBack, u, '', pc['edge']],
+      [0, CardBack, u, '', pc['own']],
+      [0, CardBack, u, '', pc['atk']],
+      [0, CardBack, u, '', pc['spcl']],
+      // [36, CardBack, u, '', C.BLUE],
     ] as CountClaz[];
     const hexSingle = [
+      ...AfHex.allAfHex.filter((afh, n) => n < 350).map((afhex, n) => [1, PrintTile, `P${n}`, C.BLACK, afhex])
     ] as CountClaz[];
     const hexDouble = [ // [count, claz, ...constructorArgs]
-      ...AfHex.allAfHex./*filter((afh, n) => n < 35).*/map((afhex, n) => [1, PrintTile, `P${n}`, C.BLACK, afhex])
+      ...AfHex.allAfHex.filter((afh, n) => n < 350).map((afhex, n) => [1, PrintTile, `P${n}`, C.BLACK, afhex])
     ] as CountClaz[];
     const circDouble = [ // [count, class],
     ] as CountClaz[];
 
     const pageSpecs: PageSpec[] = [];
-    // this.clazToTemplate(circDouble, ImageGrid.circDouble_0_79, pageSpecs);
-    // this.clazToTemplate(ruleFront, ImageGrid.cardSingle_3_5, pageSpecs);
-    this.clazToTemplate(hexDouble, ImageGrid.hexDouble_1_19, pageSpecs);
     this.clazToTemplate(cardSingle, ImageGrid.cardSingle_1_75, pageSpecs);
-    this.clazToTemplate(hexSingle, ImageGrid.hexSingle_1_19, pageSpecs);
+    // this.clazToTemplate(hexSingle, ImageGrid.hexSingle_1_19, pageSpecs);
+    this.clazToTemplate(hexDouble, ImageGrid.hexDouble_1_19, pageSpecs);
     return pageSpecs;
   }
 
