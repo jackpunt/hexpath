@@ -15,21 +15,19 @@ export class Player extends PlayerLib {
   static initialCoins = 400;
   // set our multi-player colors (concept from Ankh?); we don't use the TP.colorScheme
   static { PlayerLib.colorScheme = playerColors.concat() }
-  static override colorScheme: PlayerColor[];
-  override get color(): PlayerColor {
-    return super.color as PlayerColor;
-  }
-  override set color(c:  PlayerColor) {
-    super.color = c;
-  }
+  declare static colorScheme: PlayerColor[];
+
+  declare static allPlayers: Player[];
+
+  override get color(): PlayerColor { return super.color as PlayerColor; }
+  override set color(c: PlayerColor) { super.color = c; }
+
 
   declare gamePlay: GamePlay;
 
   constructor(index: number, gamePlay: GamePlay) {
     super(index, gamePlay);
   }
-
-  static override allPlayers: Player[];
 
   /**
    * Before start each new game.
