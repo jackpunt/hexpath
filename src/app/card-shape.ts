@@ -26,7 +26,7 @@ export class CardShape extends RectShape {
   }
 
   /** modify _cgf to produce 2 vertical rectangles */
-  dualCgf(...colors: string[]) {
+  dualCgf(strokec: string, ...colors: string[]) {
     const [c1, c2] = colors;
     // h0 = rad - 2 * (.04 * rad) = .92 * rad
     const { w: w0, h: h0 } = this._rect, rad = h0 / .92;
@@ -34,7 +34,7 @@ export class CardShape extends RectShape {
     const w = w0 + s, h = h0 + s;
     const w2 = w / 2, rr = Math.max(w0, h0) * .05;
     this._cgf = (colorn: string, g = this.g0) => {
-      g.s(C.BLACK).ss(s);
+      g.s(strokec).ss(s);
       g.f(c1).rc(-w2, -h / 2, w2, h, rr, 0, 0, rr);
       g.f(c2).rc(0  , -h / 2, w2, h, 0, rr, rr, 0);
       return g
