@@ -1,6 +1,6 @@
 import { PaintableShape } from "@thegraid/easeljs-lib";
 import { TP as TPLib, playerColorRecord } from "@thegraid/hexlib";
-export { PlayerColor, PlayerColorRecord, otherColor, playerColor0, playerColor1, playerColorRecord, playerColorRecordF, playerColors } from "@thegraid/hexlib";
+export { otherColor, playerColor0, playerColor1, playerColorRecord, playerColorRecordF, playerColors } from "@thegraid/hexlib";
 
 declare type Params = Record<string, any>;
 

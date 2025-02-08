@@ -24,8 +24,8 @@ export class PathHex extends Hex1Lib {
 class PathHex2Lib extends Hex2Mixin(PathHex) {};
 
 export class PathHex2 extends PathHex2Lib {
-  override tile: PathTile | undefined; // uses get/set from Hex2Mixin(PathHex)
-  override meep: PathCard | undefined;
+  declare tile: PathTile | undefined; // uses get/set from Hex2Mixin(PathHex)
+  declare meep: PathCard | undefined;
   override makeLegalMark(): PathLegalMark {
     return new PathLegalMark();
   }
