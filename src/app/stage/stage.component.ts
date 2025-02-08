@@ -1,13 +1,16 @@
-import { Component, Input, OnInit } from '@angular/core';
+import { Component, HostListener, Inject, Input, OnInit } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { ActivatedRoute, Params } from '@angular/router';
 import { stime } from '@thegraid/common-lib';
+import { KeyBinder } from '@thegraid/easeljs-lib';
 import { } from 'wicg-file-system-access';
-import { AppComponent } from '../app.component';
 import { GameSetup } from '../game-setup';
 
+// Our application main entry point.
+// StageComponent sets up KeyBinder and creates a new GameSetup(qParams)
 @Component({
   selector: 'stage-comp',
+  providers: [KeyBinder, Title],
   templateUrl: './stage.component.html',
   styleUrls: ['./stage.component.css']
 })
@@ -30,7 +33,12 @@ export class StageComponent implements OnInit {
   /** HTML make a \<canvas/> with this ID: */
   mapCanvasId = `mapCanvas${this.getId()}`; // argument to new Stage(this.canvasId)
 
-  constructor(private activatedRoute: ActivatedRoute, private titleService: Title, private app: AppComponent) { }
+  constructor(
+    @Inject(KeyBinder) private keyBinder: KeyBinder,
+    private activatedRoute: ActivatedRoute,
+    private titleService: Title,
+  ) { }
+
   ngOnInit() {
     console.log(stime(this, ".noOnInit---"))
     this.activatedRoute.params.subscribe(params => {
@@ -45,11 +53,12 @@ export class StageComponent implements OnInit {
   ngAfterViewInit() {
     setTimeout(()=>this.ngAfterViewInit2(), 250) // https://bugs.chromium.org/p/chromium/issues/detail?id=1229541
   }
+
   ngAfterViewInit2() {
     let href: string = document.location.href;
     console.log(stime(this, ".ngAfterViewInit---"), href, "qParams=", this.qParams)
     const gs = new GameSetup(this.mapCanvasId, this.qParams);    // load images; new GamePlay(qParams);
-    this.titleService.setTitle(`${this.app.title} ${gs.pageLabel}`)
+    this.titleService.setTitle(`${this.titleService.getTitle()} ${gs.pageLabel}`)
   }
 
   // see: stream-writer.setButton
@@ -64,5 +73,24 @@ export class StageComponent implements OnInit {
         console.warn(`showOpenFilePicker failed: `, rej)
       });
     }
+  }
+
+  // app.component has access to the 'Host', so we use @HostListener here
+  // Listen to all Host events and forward them to our internal EventDispatcher
+  @HostListener('document:keyup', ['$event'])
+  @HostListener('document:keydown', ['$event'])
+  @HostListener('mouseenter', ['$event'])
+  @HostListener('mouseleave', ['$event'])
+  @HostListener('focus', ['$event'])
+  @HostListener('blur', ['$event'])
+  dispatchAnEvent(event: Object) {
+    // ask before [Cmd-W] closing browser tab: blocks auto-reload!
+    // addEventListener(
+    //   'beforeunload',
+    //   e => { e.stopPropagation(); e.preventDefault(); return false; },
+    //   true
+    // );
+    //console.log("dispatch: "+event.type);
+    this.keyBinder.dispatchEvent(event);
   }
 }

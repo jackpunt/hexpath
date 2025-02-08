@@ -43,7 +43,7 @@ export class TileExporter {
     // this.clazToTemplate(circDouble, ImageGrid.circDouble_0_79, pageSpecs);
     // this.clazToTemplate(ruleFront, ImageGrid.cardSingle_3_5, pageSpecs);
     this.clazToTemplate(hexDouble, ImageGrid.hexDouble_1_19, pageSpecs);
-    this.clazToTemplate(cardSingle, ImageGrid.cardSingle_3_5, pageSpecs);
+    this.clazToTemplate(cardSingle, ImageGrid.cardSingle_1_75, pageSpecs);
     this.clazToTemplate(hexSingle, ImageGrid.hexSingle_1_19, pageSpecs);
     return pageSpecs;
   }

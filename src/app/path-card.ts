@@ -407,7 +407,7 @@ export class PathCard extends Tile {
   /** how many of which Claz to construct & print */
   static countClaz(n = 2) {
     const rules = new PRgen().ruleSpecs;
-    return rules.map(rs => [n, PathCard, rs, 750] as CountClaz)
+    return rules.map(rs => [n, PathCard, rs, 525] as CountClaz)
   }
   static cardByName: Map<string,PathCard> = new Map();
   static uniqueId(rsid: string) {
