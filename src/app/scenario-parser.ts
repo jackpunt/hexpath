@@ -66,7 +66,7 @@ export class ScenarioParser extends SPLib {
   }
 
   /** add the elements are are not in SetupEltLib */
-  override addStateElements(setupElt: SetupElt): void {
+  override addStateElements(setupElt: SetupElt) {
     const namesOf = (ary: (Tile | undefined)[]) => ary.map(tile => tile?.Aname ?? '').filter(n => !!n);
     const table = this.gamePlay.table;
     const gameState = this.gamePlay.gameState.saveState();
@@ -78,6 +78,7 @@ export class ScenarioParser extends SPLib {
     setupElt.cards = cards;
     setupElt.tiles = tiles;
     setupElt.rules = rules;
+    return setupElt;
   }
 
 }
