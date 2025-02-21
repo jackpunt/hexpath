@@ -22,7 +22,8 @@ export class ScenarioParser extends SPLib {
   declare gamePlay: GamePlay;
   setUnitsFromSource<T extends Tile>(nameArys: string[][] | undefined, type: { source: TileSource<T> },
     getItem: ((name: string) => T | undefined) | undefined,
-    setItem: (player: Player) => (item: T | undefined) => any) {
+    setItem: (player: Player) => (item: T | undefined) => any)
+  {
     if (getItem === undefined) getItem = (name) => type.source.filterUnits().find(u => u.Aname == name);
     nameArys?.forEach((names, pndx) => {
       const player = Player.allPlayers[pndx];

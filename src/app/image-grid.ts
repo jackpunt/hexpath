@@ -40,6 +40,8 @@ export type PageSpec = {
   basename?: string,
 }
 
+
+/** Setup html buttons, manage canvases, and add "Tile" to grid based on GridSpec. */
 export class ImageGrid {
   // Office Depot stick-on circles; on Brother HL-L3210CW printer
   static circle_1_inch: GridSpec = {
@@ -164,8 +166,8 @@ export class ImageGrid {
   setAnchorClick(id: string, label: string, onclick?: ((ev: MouseEvent) => void) | 'stop') {
     const anchor = document.getElementById(id) as HTMLAnchorElement;
     anchor.innerHTML = `<button type="button">${label}</button>`;
-    if (onclick === 'stop') { anchor.href = 'javascript:void(0);'; anchor.onclick = null; }
-    else if (onclick) anchor.onclick = onclick;
+    if (onclick === 'stop') { anchor.onclick = null; }
+    else if (onclick) { anchor.onclick = onclick }
   }
 
   downloadPageSpecs(pageSpecs: PageSpec[]) {
@@ -188,20 +190,26 @@ export class ImageGrid {
     });
 
     let viewClick = 0;
-    this.setAnchorClick('viewPage', `ViewPage-P${viewClick}`, () => {
-      if (viewClick >= pageSpecs.length) {
-        this.addCanvas(undefined);
-        this.setAnchorClick('viewPage', 'ViewPage-done', 'stop');
-        return;
-      }
-      const n = viewClick++;
+    const viewPage = (n = viewClick) => {
       const pageSpec = pageSpecs[n];
       const canvas = pageSpec.canvas as HTMLCanvasElement;
       canvas.style.border = "2px solid";
       this.addCanvas(canvas);
+      viewClick = n + 1;
       const next = `${(viewClick < pageSpecs.length) ? `P${viewClick}`: 'done'}`
-      this.setAnchorClick('viewPage', `ViewPage-${next}`);
+      this.setAnchorClick('viewPage', `ViewPage-${next}`, () => {
+        if (viewClick < pageSpecs.length) {
+          viewPage();
+        } else {
+          this.addCanvas(undefined);
+          this.setAnchorClick('viewPage', 'ViewPage-done', 'stop');
+        }
+      })
+    }
+    this.setAnchorClick('viewPage0', 'ViewPage0', () => {
+      viewPage(viewClick = 0)
     })
+    viewPage(viewClick = 0)
     return;
   }
 
