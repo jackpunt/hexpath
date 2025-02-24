@@ -332,7 +332,7 @@ export class PathCard extends Tile {
     return undefined; // player.cardRack OR (discard && isDoneCard)
   }
 
-  override markLegal(table: Table, setLegal = (hex: Hex2) => { hex.isLegal = false; }, ctx?: DragContext): void {
+  override markLegal(table: Table, setLegal = (hex: Hex2) => { hex.setIsLegal(false); }, ctx?: DragContext): void {
     table.gamePlay.curPlayer.cardRack.forEach(setLegal)
     setLegal(table.cardRack[0])
     setLegal(PathCard.discard.hex as Hex2)

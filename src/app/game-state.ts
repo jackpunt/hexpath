@@ -59,7 +59,7 @@ export class GameState extends GameStateLib {
     BeginTurn: {
       start: () => {
         this.cardDone = this.tileDone = undefined;
-        this.saveGame();
+        this.gamePlay.saveGame();
         this.table.doneButton.activate()
         this.phase('ChooseAction');
       },

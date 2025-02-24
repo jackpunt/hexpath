@@ -225,7 +225,7 @@ export class PathTile extends MapTile {
   }
 
   // dragStart -> markLegal; dragFunc(ctx.info.first) -> setLegalColors
-  override markLegal(table: Table, setLegal = (hex: IHex2) => { hex.isLegal = false; }, ctx = table.dragContext) {
+  override markLegal(table: Table, setLegal = (hex: IHex2) => { hex.setIsLegal(false); }, ctx = table.dragContext) {
     this.maxV = -1;  // dragStart is before markLegal()
     ;(table as PathTable).gamePlay.curPlayer.tileRack.forEach(setLegal)
     table.hexMap.forEachHex(setLegal);

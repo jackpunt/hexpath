@@ -1,5 +1,5 @@
 import { stime } from '@thegraid/common-lib';
-import { GameSetup as GameSetupLib, H, MapCont, Scenario as Scenario0, Table, TP, type HexAspect } from '@thegraid/hexlib';
+import { GameSetup as GameSetupLib, MapCont, Scenario as Scenario0, Table, TP, type StartElt } from '@thegraid/hexlib';
 import { GamePlay } from './game-play';
 import { CardHex, PathCard } from './path-card';
 import { PathHex as Hex1, PathHex2 as Hex2, HexMap2 } from './path-hex';
@@ -29,10 +29,14 @@ Math.stime = stime; // can use Math.stime() in js/debugger
 export class GameSetup extends GameSetupLib {
   declare table: PathTable;
 
-  override startup(qParams?: { [x: string]: any; }): void {
-    PathTile.clearAllTiles()
+  override startup(qParams: StartElt): void {
     PathCard.nextRadius = PathCard.onScreenRadius; // reset for on-screen PathCard
     super.startup(qParams)
+  }
+
+  override zeroAllArrays(clearLog?: boolean): void {
+    PathTile.allPathTiles.length = 0;
+    super.zeroAllArrays()
   }
 
   // allow qParams as opt arg:
@@ -72,7 +76,7 @@ export class GameSetup extends GameSetupLib {
     return new PathTable(this.stage);
   }
 
-  override makeGamePlay(scenario: Scenario): GamePlay {
+  override makeGamePlay(scenario: StartElt): GamePlay {
     return new GamePlay(this, scenario);
   }
 
