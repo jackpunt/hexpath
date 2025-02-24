@@ -92,7 +92,7 @@ class PRgen {
   /** @return -1: bad OR 0: no join OR nm: nm >= n factors match on this edge */
   efunc_matches_n = (n: number, tile: PathTile, hex: Hex1, dir: HexDir) => {
     const scf0 = tile.afhex.scf(dir)
-    const join = (hex.links[dir] as Hex1)?.tile;
+    const join = (hex.links[dir] as Hex1)?.ptile;
     const nm = join?.afhex.scf(H.dirRev[dir]).filter((v, ndx) => (v == scf0[ndx])).length ?? 0;
     return join ? ((nm < n) ? -1 : nm) : 0;
   }
@@ -105,7 +105,7 @@ class PRgen {
   // @return number of matching facets [0..3] on join of given dir (OR 0 if no join)
   efunc_match_sum = (tile: PathTile, hex: Hex1, dir: HexDir) => {
     const scf0 = tile.afhex.scf(dir)
-    const join = (hex.links[dir] as Hex1)?.tile;
+    const join = (hex.links[dir] as Hex1)?.ptile;
     const nf = join?.afhex.scf(H.dirRev[dir]).filter((v, ndx) => (v == scf0[ndx]));
     return nf?.length ?? 0;  // num of matches: [0..3] OR (0 if no join)
   }
@@ -122,7 +122,7 @@ class PRgen {
   /** each join matches on scf[ndx] (shape,color,fill); return nm */
   efunc_match_scf = (ndx: SCF, tile: PathTile, hex: Hex1, dir: HexDir): number => {
     const scf0 = tile.afhex.scf(dir)
-    const join = (hex.links[dir] as Hex1)?.tile;
+    const join = (hex.links[dir] as Hex1)?.ptile;
     const nm = join?.afhex.scf(H.dirRev[dir]).filter((v, ndx) => (v == scf0[ndx])).length ?? 0;
     const m = join?.afhex.scf(H.dirRev[dir])[ndx] == scf0[ndx];
     return join ? (m ? nm : -1) : 0;
@@ -140,7 +140,7 @@ class PRgen {
     const plyr = tile?.player as Player;
     if (!plyr) debugger; // hex is not on map?
     let len = 0, hexN = hex.nextHex(dir);
-    for (; hexN?.tile?.player === plyr; len++, hexN = hexN?.nextHex(dir));
+    for (; hexN?.ptile?.player === plyr; len++, hexN = hexN?.nextHex(dir));
     return len
   }
 
@@ -155,7 +155,7 @@ class PRgen {
   vfunc_adj_other_n(n: number, tile: PathTile, hex: Hex1) {
     const plyr = tile?.player; // assert: (plyr !== undefined)
     const ev = Hdirs.filter(dir => {
-      const aTile = hex.links[dir]?.tile;
+      const aTile = hex.links[dir]?.ptile;
       return aTile && (aTile.player !== plyr)
     })
     const evn = ev.length;
@@ -165,7 +165,7 @@ class PRgen {
   /** adjacent to n tiles player DOES own. */
   vfunc_adj_own_n(n: number, tile: PathTile, hex: Hex1) {
     const plyr = tile?.player; // assert: (plyr !== undefined)
-    const ev = Hdirs.filter(dir => hex.links[dir]?.tile?.player === plyr)
+    const ev = Hdirs.filter(dir => hex.links[dir]?.ptile?.player === plyr)
     const evn = ev.length;
     return (evn >= n) ? evn : -1;
   }
@@ -173,11 +173,11 @@ class PRgen {
   efunc_atk_n(tile: PathTile, hex: Hex1, dir: HexDir, n: number) {
     const plyr = tile?.player as Player;
     let len = 0, hexN = hex.nextHex(dir); // generally: (n > 0)
-    for (; hexN?.tile?.player === plyr; len++, hexN = hexN?.nextHex(dir));
+    for (; hexN?.ptile?.player === plyr; len++, hexN = hexN?.nextHex(dir));
     // last player tile was: hex.nexHex(dir, len); hexN?.tile?.player !== plyr
 
-    if (len >= n && hexN?.tile) {
-      hexN.tile.setPlayerAndPaint(plyr); // TODO: graphic feedback (ala hexline)
+    if (len >= n && hexN?.ptile) {
+      hexN.ptile.setPlayerAndPaint(plyr); // TODO: graphic feedback (ala hexline)
       return len;
     }
     return 0;
@@ -188,7 +188,7 @@ class PRgen {
     const ev = Hdirs.map(dir => 1 + this.efunc_line_len(tile, hex, dir)); // [ef(NE), ef(E)...ef(NW)]
     const evN = ev.map((len, nth) => {
       if (len >= n) {
-        const nTile = hex.nextHex(Hdirs[nth], len)?.tile;
+        const nTile = hex.nextHex(Hdirs[nth], len)?.ptile;
         const plyr = tile.player as Player, nPlyr = nTile?.player as Player;
         if (!plyr) { debugger; return 0 }
         if (nTile && nPlyr !== plyr) {

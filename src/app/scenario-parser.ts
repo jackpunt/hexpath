@@ -26,7 +26,7 @@ export class ScenarioParser extends SPLib {
   {
     if (getItem === undefined) getItem = (name) => type.source.filterUnits().find(u => u.Aname == name);
     nameArys?.forEach((names, pndx) => {
-      const player = Player.allPlayers[pndx];
+      const player = this.gamePlay.allPlayers[pndx];
       names.forEach(name => {
         const item = getItem(name)
         if (!item) {
@@ -71,8 +71,8 @@ export class ScenarioParser extends SPLib {
     const namesOf = (ary: (Tile | undefined)[]) => ary.map(tile => tile?.Aname ?? '').filter(n => !!n);
     const table = this.gamePlay.table;
     const gameState = this.gamePlay.gameState.saveState();
-    const tiles = Player.allPlayers.map(p => namesOf(p.tiles)).filter(t => !!t)
-    const cards = Player.allPlayers.map(p => namesOf(p.cards)).filter(c => !!c)
+    const tiles = this.gamePlay.allPlayers.map(p => namesOf(p.tiles)).filter(t => !!t)
+    const cards = this.gamePlay.allPlayers.map(p => namesOf(p.cards)).filter(c => !!c)
     const rCards = table.cardRack.map(hex => hex.card);
     const rules = namesOf(rCards);
     setupElt.gameState = gameState;

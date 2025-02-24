@@ -112,7 +112,7 @@ class TileExporterLib {
 
 export class TileExporter extends TileExporterLib {
   override makeImagePages() {
-    const u = undefined, p0 = Player.allPlayers[0], p1 = Player.allPlayers[1];
+    const u = undefined;
     const pc = PathCard.colorMap;
     const cardSingle = [
       ...PathCard.countClaz(3), // [count, claz, ...constructorArgs]

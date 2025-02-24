@@ -19,6 +19,8 @@ export class GamePlay extends GamePlayLib {
   declare hexMap: HexMap<PathHex>
   declare table: PathTable;
 
+  override get allPlayers() { return super.allPlayers as Player[] }
+
   declare curPlayer: Player;
   override startTurn() {
   }

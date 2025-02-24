@@ -13,11 +13,10 @@ const playerColors = ['gold', 'lightblue', 'violet', 'blue', 'orange', ] as cons
 export type PlayerColor = typeof playerColors[number];
 export class Player extends PlayerLib {
   static initialCoins = 400;
-  // set our multi-player colors (concept from Ankh?); we don't use the TP.colorScheme
-  static { PlayerLib.colorScheme = playerColors.concat() }
-  declare static colorScheme: PlayerColor[];
-
-  declare static allPlayers: Player[];
+  // {gold: 'gold', lightblue: 'lightblue', violet: 'Violet', blue: 'blue', orange: 'orange' };
+  static {
+    PlayerLib.colorScheme = playerColors.reduce((pv, cv) => (pv[cv] = cv, pv), {} as Record<string, string>)
+  }
 
   override get color(): PlayerColor { return super.color as PlayerColor; }
   override set color(c: PlayerColor) { super.color = c; }

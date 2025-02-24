@@ -10,12 +10,10 @@ import type { PathTile } from "./path-tile";
 // Hex1 has get/set -> setUnit(unit, isMeep) & unitCollision(unit1, unit2)
 export class PathHex extends Hex1Lib {
 
-  // maybe unnecessary to override, if we never use PathHex (as Hex1)
-  override get tile() { return super.tile as PathTile; }
-  override set tile(tile: PathTile | undefined) { super.tile = tile; } // setUnit(tile, false)
-
-  override get meep() { return super.meep }
-  override set meep(meep) { super.meep = meep; } // setUnit(meep, true)
+  // cannot override set/get tile(); prevents other components from setting a simple Tile.
+  // Type 'Hex1 | undefined' is not assignable to type 'PathHex | undefined'.
+  /** read hex.tile as PathTile */
+  get ptile() { return super.tile as PathTile | undefined; }
 
   get card() { return super.meep as PathCard | undefined }
   set card(card) { super.meep = card; }
@@ -24,8 +22,8 @@ export class PathHex extends Hex1Lib {
 class PathHex2Lib extends Hex2Mixin(PathHex) {};
 
 export class PathHex2 extends PathHex2Lib {
-  declare tile: PathTile | undefined; // uses get/set from Hex2Mixin(PathHex)
-  declare meep: PathCard | undefined;
+  // declare tile: PathTile | undefined; // uses get/set from Hex2Mixin(PathHex)
+  // declare meep: PathCard | undefined;
   override makeLegalMark(): PathLegalMark {
     return new PathLegalMark();
   }

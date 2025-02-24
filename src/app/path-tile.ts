@@ -2,6 +2,7 @@ import { C } from "@thegraid/common-lib";
 import { CenterText, CircleShape, PaintableShape } from "@thegraid/easeljs-lib";
 import { type DragContext, H, Hex2 as Hex2Lib, HexShape, type IHex2, MapTile, Player as PlayerLib, type Table, TileSource, TP } from "@thegraid/hexlib";
 import { AfHex } from "./af-hex";
+import type { GamePlay } from "./game-play";
 import type { GameState } from "./game-state";
 import { CardHex, type PathRule } from "./path-card";
 import { type PathHex as Hex1, type PathHex2 as Hex2 } from "./path-hex";
@@ -38,10 +39,8 @@ const Hdirs = TP.useEwTopo ? H.ewDirs : H.nsDirs;
 export class PathTile extends MapTile {
 
   static readonly allPathTiles: PathTile[] = [];
-  static override clearAllTiles(): void {
-    super.clearAllTiles();
-    PathTile.allPathTiles.length = 0;
-  }
+
+  declare gamePlay: GamePlay;
 
   static curTable: PathTable;
   static source: TileSource<PathTile>;
@@ -169,8 +168,8 @@ export class PathTile extends MapTile {
    * @param rot [this.rotated]
    */
   showRuleValues(hex: Hex2, rot = this.rotated) {
-    const player = Player
-    const plyrRules = player.allPlayers.map(p => p.cardRack.filter(h => h.card).map(h => h.card!.rule))
+    const allPlayers = this.gamePlay.allPlayers;
+    const plyrRules = allPlayers.map(p => p.cardRack.filter(h => h.card).map(h => h.card!.rule))
     const tableRules = this.rulesFromTable();
     const rules = tableRules.concat(...plyrRules)
     const rvar = this.ruleValueAtRotation(rot, hex, false, rules);  // setting card.ruleValueAtRot

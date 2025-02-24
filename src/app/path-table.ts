@@ -150,14 +150,17 @@ export class PathTable extends Table {
     gui.spec("hexRad").onChange = (item: ParamItem) => { gameSetup.restart({ hexRad: item.value }) }
     gui.spec("nHexes").onChange = (item: ParamItem) => { gameSetup.restart({ nh: item.value }) }
 
-    gui.makeParamSpec('color', [C.black, C.white]).onChange = (item: ParamItem) => {
-      const tColor = C.pickTextColor(item.value);
-      PathTile.allPathTiles.forEach(tile => tile.paintBase(item.value, tColor))
+    const setColor = (value: string) => {
+      const tColor = C.pickTextColor(value);
+      PathTile.allPathTiles.forEach(tile => tile.paintBase(value, tColor))
     }
+    const colors = [C.black, C.white];
+    gui.makeParamSpec('color', colors).onChange = (item: ParamItem) => setColor(item.value);
 
     parent.addChild(gui)
     gui.x = x; gui.y = y
     gui.makeLines();
+    setColor(colors[0]);
     return gui
     }
 }
