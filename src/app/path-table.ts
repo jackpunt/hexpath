@@ -125,8 +125,8 @@ export class PathTable extends Table {
     return (dragging instanceof PathTile) ? dragging : undefined;
   }
 
-  override startGame(scenario: Scenario) {
-    super.startGame(scenario);         // allTiles.makeDragable(); setNextPlayer()
+  override startGame() {
+    super.startGame();         // allTiles.makeDragable(); setNextPlayer()
     this.gamePlay.gameState.start();   // gamePlay.phase(startPhase); enable GUI to drive game
   }
 
