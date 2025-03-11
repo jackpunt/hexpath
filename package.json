@@ -1,6 +1,6 @@
 {
   "name": "hexpath",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
@@ -26,7 +26,7 @@
     "@thegraid/easeljs-lib": "^1.4.12",
     "@thegraid/easeljs-module": "^1.2.2",
     "@thegraid/ezpromise": "^1.2.1",
-    "@thegraid/hexlib": "^1.4.3",
+    "@thegraid/hexlib": "file:../../ts/hexlib/thegraid-hexlib-1.4.4.tgz",
     "@thegraid/wspbclient": "^1.4.26",
     "file-loader": "^6.2.0",
     "rxjs": "~7.8.0",
