@@ -137,6 +137,11 @@ export class Player extends PlayerLib {
   /** for ScenarioParser.saveState() */ // TODO: code cards with index, or string->card
   get cards() { return this.cardRack.map(hex => hex.tile) }
 
+  /** rules in Player's cardRack */
+  get cardRules() {
+    return this.cardRack.filter(h => h.card).map(h => h.card!.rule);
+  }
+
   get myTiles() { return PathTile.allPathTiles.filter(tile => tile.hex?.isOnMap && tile.player === this) }
   // Each of myTiles has a Network that appears in allNetworks:
   // ASSERT: tileToNetwork.values.forEach(net => allNetworks.includes(net));

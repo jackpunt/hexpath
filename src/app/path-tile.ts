@@ -54,7 +54,7 @@ export class PathTile extends MapTile {
 
   readonly afhex;
   readonly plyrDisk = new CircleShape(C.white, TP.hexRad * .5, '');
-  readonly _valueText = new CenterText('0', TP.hexRad * .5, C.WHITE);
+  readonly _valueText = new CenterText('', TP.hexRad * .5, C.WHITE);
   get valueText() { return this._valueText.text }
   set valueText(value: string) {
     this._valueText.text = value;
@@ -152,10 +152,23 @@ export class PathTile extends MapTile {
     }); // [rv(0), rv(1),rv(3)] for each rule
   }
 
+  /**
+   * Join player rules and table rules;
+   * @param plyr Player; if undefined then rules for allPlayers
+   * @returns
+   */
+  allRules(plyr?: Player) {
+    const allPlayers = this.gamePlay.allPlayers;
+    const plyrRules = plyr ? plyr.cardRules : allPlayers.flatMap(p => p.cardRules);
+    const tableRules = this.rulesFromTable(PathTile.curTable);
+    return [...plyrRules, ...tableRules];
+  }
+
   rulesFromCtx (ctx: DragContext) {
     // retain curTable for later calls where ctx is not available
     PathTile.curTable = (ctx.gameState as GameState).table; // retain to find rules
-    return this.rulesFromTable(PathTile.curTable)
+    const rules = this.allRules((ctx.gameState.curPlayer as Player));
+    return rules;
   }
   rulesFromTable(table = PathTile.curTable) {
     return table.cardPanel.rules ?? [];
