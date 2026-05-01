@@ -131,7 +131,7 @@ export class PathTile extends MapTile {
    * @param rules rules that can/must be satisfied; each giving a value
    * @return total_value[] for each rotation. (a value is -1 if toHex w/rotation is prohibited)
    */
-  ruleValuesOnHex(toHex: Hex1, commit = false, rules: PathRule[] = this.rulesFromTable()) {
+  ruleValuesOnHex(toHex: Hex1, commit = false, rules: PathRule[] = this.allRules()) {
     const rotated = this.rotated;
     const valueAtRotation = Hdirs.map((dir, n) => {
       const values = this.ruleValueAtRotation(n, toHex, commit, rules)
@@ -143,7 +143,7 @@ export class PathTile extends MapTile {
   }
 
   /** rule.value() at given rotation, for each rule */
-  ruleValueAtRotation(rot: number, toHex: Hex1, commit = false, rules: PathRule[] = this.rulesFromTable()) {
+  ruleValueAtRotation(rot: number, toHex: Hex1, commit = false, rules: PathRule[] = this.allRules()) {
     this.rotated = rot; // set ABSOLUTE rotation of afhex relative to ORGINAL spec
     let veto_n = -1;
     return rules.map((rule, n) => {
@@ -154,12 +154,11 @@ export class PathTile extends MapTile {
 
   /**
    * Join player rules and table rules;
-   * @param plyr Player; if undefined then rules for allPlayers
+   * @param plyr Player; if undefined THEN rules for allPlayers
    * @returns
    */
-  allRules(plyr?: Player) {
-    const allPlayers = this.gamePlay.allPlayers;
-    const plyrRules = plyr ? plyr.cardRules : allPlayers.flatMap(p => p.cardRules);
+  allRules(plyr = this.player as Player) {
+    const plyrRules = plyr.cardRules;
     const tableRules = this.rulesFromTable(PathTile.curTable);
     return [...plyrRules, ...tableRules];
   }
@@ -181,10 +180,7 @@ export class PathTile extends MapTile {
    * @param rot [this.rotated]
    */
   showRuleValues(hex: Hex2, rot = this.rotated) {
-    const allPlayers = this.gamePlay.allPlayers;
-    const plyrRules = allPlayers.map(p => p.cardRack.filter(h => h.card).map(h => h.card!.rule))
-    const tableRules = this.rulesFromTable();
-    const rules = tableRules.concat(...plyrRules)
+    const rules = this.allRules();
     const rvar = this.ruleValueAtRotation(rot, hex, false, rules);  // setting card.ruleValueAtRot
     rules.map((rule, n) => rule.card.value = rvar[n])
   }
@@ -321,13 +317,13 @@ export class PathTile extends MapTile {
 
   /** when tile is placed on map, credit player with value of placement. */
   override placeTile(toHex?: Hex1, payCost = true): void {
-    if (toHex) {
+    if (toHex?.isOnMap) {
       const rotValues = (toHex as Hex2).legalMark.valuesAtRot; // for debugging -> placeValue
       const value = this.placeValue;
       if (value > 0 && this.player) {
         this.player.coins += value;
         // if atk rule succeeds, set player of captured tile:
-        const rules = this.rulesFromTable().filter(r => r.type === 'atk')
+        const rules = this.allRules(this.player as Player).filter(r => r.type === 'atk')
         if (rules.length > 0)
           this.ruleValueAtRotation(this.rotated, toHex, payCost, rules); // true, mostly
       }

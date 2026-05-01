@@ -158,6 +158,7 @@ export class Player extends PlayerLib {
     this.updateNetCounters();
   };
 
+  /** add or remove Tile from its Network */
   adjustNetwork(tile: PathTile, add = tile.hex?.isOnMap && tile.player == this) {
     if (add) {
       // if Shift-drop moves tile to new hex:
@@ -210,4 +211,5 @@ export class Player extends PlayerLib {
 
 }
 type HexT = Hex1 & { tile: PathTile } // with definite PathTile
+/** collection of Tiles mutually linked by adjacency, of same Player */
 type Network = Array<PathTile>;

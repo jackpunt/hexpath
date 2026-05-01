@@ -183,6 +183,7 @@ class PRgen {
     return 0;
   }
 
+  /** value of 'atk' is 0 unless attack works (there is an opponent at end of row to capture) */
   vfunc_atk_n(n: number, tile: PathTile, hex: Hex1, commit = false) {
     // value = len+1 IFF (line_of_n && nextHex.tile)
     const ev = Hdirs.map(dir => 1 + this.efunc_line_len(tile, hex, dir)); // [ef(NE), ef(E)...ef(NW)]
@@ -190,8 +191,8 @@ class PRgen {
       if (len >= n) {
         const nTile = hex.nextHex(Hdirs[nth], len)?.ptile;
         const plyr = tile.player as Player, nPlyr = nTile?.player as Player;
-        if (!plyr) { debugger; return 0 }
-        if (nTile && nPlyr !== plyr) {
+        if (!plyr || nPlyr == plyr) { debugger; return 0 }
+        if (nTile) {
           if (commit) {
             nTile.setPlayerAndPaint(plyr);
             plyr.adjustNetwork(nTile);
