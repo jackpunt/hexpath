@@ -242,6 +242,7 @@ export class PathTile extends MapTile {
     this.maxV = -1;  // dragStart is before markLegal()
     ;(table as PathTable).gamePlay.curPlayer.tileRack.forEach(setLegal)
     table.hexMap.forEachHex(setLegal);
+    if (ctx.tile) (ctx.tile as PathTile).placeValue = this.maxV;
   }
 
   /** max of maxV found during markLegal->isLegalTarget */
