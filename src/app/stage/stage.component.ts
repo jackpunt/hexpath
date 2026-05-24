@@ -56,10 +56,12 @@ export class StageComponent implements OnInit {
   }
 
   ngAfterViewInit2() {
-    let href: string = document.location.href;
-    console.log(stime(this, ".ngAfterViewInit---"), href, "qParams=", this.qParams)
-    const gs = new GameSetup(this.mapCanvasId, this.qParams);    // load images; new GamePlay(qParams);
-    this.titleService.setTitle(`${this.titleService.getTitle()} ${gs.pageLabel}`)
+    const href: string = document.location.href, title = this.titleService.getTitle();
+    const qParams = { ...this.qParams, title };
+    console.log(stime(this, ".ngAfterViewInit---"), href, "qParams=", qParams)
+    const gs = new GameSetup(this.mapCanvasId, qParams);
+    this.titleService.setTitle(`${title} ${gs.pageLabel}`)
+    gs.loadImagesThenStartup();     // loadImages -> startup: new GamePlay(qParams);
   }
 
   // see: stream-writer.setButton

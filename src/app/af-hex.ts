@@ -162,7 +162,7 @@ export class AfHex extends NamedContainer implements Record<AfKey, string[]> {
   }
 
   /** could be called from Tile.reCache() if that were necessary... */
-  reCache(scale = TP.cacheTiles) {
+  override reCache(scale = TP.cacheTiles) {
     if (this.cacheID) this.uncache();
     const { x, y, width: w, height: h } = this.getBounds();
     this.cache(x, y, w, h, scale)

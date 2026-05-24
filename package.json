@@ -1,16 +1,16 @@
 {
   "name": "hexpath",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test",
     "newcom": "npm i ../../ts/common-lib/thegraid-common-lib-*.tgz ; rm -rf .angular/cache ; date",
     "newhex": "npm i ../../ts/hexlib/thegraid-hexlib-*.tgz ; rm -rf .angular/cache ; date",
-    "newejs": "npm i ../../ts/createjs-module/thegraid-easeljs-module-*.tgz ; rm -rf .angular/cache",
-    "newlib": "npm i ../../ts/createjs-lib/thegraid-easeljs-lib-*.tgz ; rm -rf .angular/cache"
+    "newejs": "npm i ../../ts/createjs-module/thegraid-easeljs-module-*.tgz ; rm -rf .angular/cache ; date",
+    "newlib": "npm i ../../ts/createjs-lib/thegraid-easeljs-lib-*.tgz ; rm -rf .angular/cache; date",
+    "test": "ng test"
   },
   "private": true,
   "dependencies": {
@@ -26,7 +26,7 @@
     "@thegraid/easeljs-lib": "^1.4.12",
     "@thegraid/easeljs-module": "^1.2.2",
     "@thegraid/ezpromise": "^1.2.1",
-    "@thegraid/hexlib": "file:../../ts/hexlib/thegraid-hexlib-1.4.4.tgz",
+    "@thegraid/hexlib": "^1.5.2",
     "@thegraid/wspbclient": "^1.4.26",
     "file-loader": "^6.2.0",
     "rxjs": "~7.8.0",
