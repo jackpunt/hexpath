@@ -103,7 +103,7 @@ export class Player extends PlayerLib {
     rack.forEach((hex, n) => hex.Aname = `${this.index}R${n}`)
     this.tileRack.splice(0, this.tileRack.length, ...rack); // replace all elements
   }
-  get tiles() { return this.cardRack.map(hex => hex.tile) }
+  get tiles() { return this.tileRack.map(hex => hex.tile) }
 
   /** placeTile on Player's panel, in empty hex. */
   addTile(tile?: PathTile ) {
